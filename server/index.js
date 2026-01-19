@@ -70,17 +70,15 @@ function requireRole(roles) {
 
 async function getRouteCodesOrdered() {
   const r = await pool.query(
-    const r = await pool.query(`
-  select code, category, requires_assistant, default_driver, default_assistant, bus
-  from routes
-  order by
-    cast(substring(code from 2 for 3) as int),
-    case when right(code,1)='A' then 1 else 0 end
-`);
-
+    "select code, default_driver, default_assistant " +
+    "from routes " +
+    "order by " +
+    "cast(substring(code from 2 for 3) as int), " +
+    "case when right(code,1)='A' then 1 else 0 end"
   );
   return r.rows;
 }
+
 
 function buildDefaultBoard(routeRows) {
   const board = {};
@@ -153,11 +151,6 @@ app.post('/api/users/:id/toggle', authRequired, requireRole(['admin']), async (r
   const id = Number(req.params.id);
   await pool.query('update users set active = not active where id=$1', [id]);
   res.json({ ok: true });
-});
-
-app.get('/api/routes', authRequired, async (req, res) => {
-  const r = await pool.query('select code, category, requires_assistant, default_driver, default_assistant, bus from routes order by cast(substring(code from 2 for 3) as int), case when right(code,1)='A' then 1 else 0 end');
-  res.json(r.rows);
 });
 
 app.get('/api/daysheet', authRequired, async (req, res) => {
