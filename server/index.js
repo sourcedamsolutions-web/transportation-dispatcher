@@ -125,10 +125,17 @@ app.get('/api/me', authRequired, async (req, res) => {
   res.json(r.rows[0]);
 });
 
-app.get('/api/users', authRequired, requireRole(['admin']), async (req, res) => {
-  const r = await pool.query('select id,name,role,active from users order by role,name');
+app.get('/api/routes', authRequired, async (req, res) => {
+  const r = await pool.query(
+    "select code, category, requires_assistant, default_driver, default_assistant, bus " +
+    "from routes " +
+    "order by " +
+    "cast(substring(code from 2 for 3) as int), " +
+    "case when right(code,1)='A' then 1 else 0 end"
+  );
   res.json(r.rows);
 });
+
 
 app.post('/api/users', authRequired, requireRole(['admin']), async (req, res) => {
   const { name, pin, role } = req.body || {};
