@@ -243,8 +243,8 @@ function DaySheetTab({ date }: { date: string }) {
   const [routes, setRoutes] = useState<any[]>([]);
   const [err, setErr] = useState("");
 
-  const rtnOptions = ["", "SIK", "FMLA", "WC", "PRS"];
-  const leaveCodeOptions = [""]; // you will provide the full list later
+  const rtnOptions = ["", "YES", "NO"];
+  const leaveCodeOptions = ["", "SIK", "FMLA", "WC", "PRS"]; // you will provide the full list later
 
   const employeeOptions = useMemo(() => {
     const names = new Set<string>();
@@ -291,7 +291,7 @@ function DaySheetTab({ date }: { date: string }) {
     }
   };
 
-  const makeCells = (n = 8): { value: string; notified: boolean }[] =>
+  const makeCells = (n = 5): { value: string; notified: boolean }[] =>
     Array.from({ length: n }, () => ({ value: "", notified: false }));
 
   const addRow = (mode: "drivers" | "assistants") => {
@@ -333,7 +333,7 @@ function DaySheetTab({ date }: { date: string }) {
     if (!sheet) return null;
     const rows = sheet[mode];
 
-    const headerCols = ["1st", "2nd", "3rd", "4th", "Add'l 5", "Add'l 6", "Add'l 7", "Add'l 8"];
+    const headerCols = ["1st", "2nd", "3rd", "4th", "Add'l 5"];
 
     return (
       <div className="print-page">
@@ -365,7 +365,12 @@ function DaySheetTab({ date }: { date: string }) {
                 {/* AM row */}
                 <tr className="ops-am-row">
                   <td className="ops-route">
-                    <input list={"routeList"} value={row.route} onChange={(e) => updateRowField(mode, i, "route", e.target.value)} />
+                    <select value={row.route} onChange={(e) => updateRowField(mode, i, "route", e.target.value)}>
+                      <option value=""></option>
+                      {routeOptions.map((r) => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
                   </td>
                   <td className="ops-emp">
                     <input list={"empList"} value={row.employee} onChange={(e) => updateRowField(mode, i, "employee", e.target.value)} />
@@ -380,7 +385,11 @@ function DaySheetTab({ date }: { date: string }) {
                     </select>
                   </td>
                   <td className="ops-leave">
-                    <input list={"leaveList"} value={row.leaveCode} onChange={(e) => updateRowField(mode, i, "leaveCode", e.target.value)} />
+                    <select value={row.leaveCode} onChange={(e) => updateRowField(mode, i, "leaveCode", e.target.value)}>
+                      {leaveCodeOptions.map((o) => (
+                        <option key={o} value={o}>{o}</option>
+                      ))}
+                    </select>
                   </td>
                   {row.am.map((c, cidx) => (
                     <td
@@ -388,7 +397,7 @@ function DaySheetTab({ date }: { date: string }) {
                       className={"ops-run " + (c.notified ? "am-notified" : "am-default")}
                     >
                       <input
-                        list={"empList"}
+                        list={"runList"}
                         className="ops-cell"
                         value={c.value}
                         onChange={(e) => updateCell(mode, i, "am", cidx, e.target.value)}
@@ -412,7 +421,7 @@ function DaySheetTab({ date }: { date: string }) {
                       className={"ops-run " + (c.notified ? "pm-notified" : "pm-default")}
                     >
                       <input
-                        list={"empList"}
+                        list={"runList"}
                         className="ops-cell"
                         value={c.value}
                         onChange={(e) => updateCell(mode, i, "pm", cidx, e.target.value)}
@@ -427,22 +436,20 @@ function DaySheetTab({ date }: { date: string }) {
             ))}
           </tbody>
         </table>
-
-        <datalist id="routeList">
-          {routeOptions.map((r) => (
-            <option key={r} value={r} />
-          ))}
-        </datalist>
         <datalist id="empList">
           {employeeOptions.map((n) => (
             <option key={n} value={n} />
           ))}
         </datalist>
-        <datalist id="leaveList">
-          {leaveCodeOptions.map((c) => (
-            <option key={c} value={c} />
-          ))}
-        </datalist>
+<datalist id="runList">
+  {["Julia", "Noel", "Lizette", "Ray", "Nic", "Rachael", "Myra", "Jeff"].map((n) => (
+    <option key={"p-" + n} value={n} />
+  ))}
+  {routeOptions.map((r) => (
+    <option key={"r-" + r} value={r} />
+  ))}
+</datalist>
+
       </div>
     );
   };
@@ -490,7 +497,6 @@ function DaySheetTab({ date }: { date: string }) {
       {sheet ? (
         <div className="daysheet-wrap">
           {renderGrid("DAY SHEET — DRIVERS", "drivers")}
-          {renderBlocks()}
           {renderGrid("DAY SHEET — ASSISTANTS (A Routes)", "assistants")}
           {renderBlocks()}
         </div>
@@ -664,7 +670,7 @@ export default function App() {
       {activeTab === "daysheet" ? <DaySheetTab date={date} /> : null}
       {activeTab === "callouts" ? <CalloutsTab /> : null}
 
-      {user.role === "admin" ? <AdminPanel /> : null}
+      {activeTab === "admin" && user.role === "admin" ? <AdminPanel /> : null}
     </div>
   );
 }

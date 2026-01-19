@@ -201,7 +201,7 @@ app.get("/api/routes", authRequired, async (req, res) => {
 
 
 // Ops Day Sheet (official template)
-function makeOpsCells(n = 8) {
+function makeOpsCells(n = 5) {
   return Array.from({ length: n }, () => ({ value: "", notified: false }));
 }
 function makeDefaultOpsRow(routeCode = "") {
@@ -210,32 +210,22 @@ function makeDefaultOpsRow(routeCode = "") {
     employee: "",
     rtn: "",
     leaveCode: "",
-    am: makeOpsCells(8),
-    pm: makeOpsCells(8),
+    am: makeOpsCells(5),
+    pm: makeOpsCells(5),
   };
 }
 function defaultBlocks() {
   return { other: "", reliefDrivers: "", officeStaff: "", busService: "", outOfService: "" };
 }
 async function buildDefaultOpsSheet(date) {
-  const routes = await pool.query(
-    "select code, default_driver, default_assistant from routes " +
-      "order by cast(substring(code from 2 for 3) as int), case when right(code,1)='A' then 1 else 0 end"
-  );
-  const driverOpen = routes.rows
-    .filter((r) => !String(r.code).endsWith("A"))
-    .filter((r) => String(r.default_driver || "").toUpperCase() === "OPEN")
-    .map((r) => makeDefaultOpsRow(r.code));
-
-  const assistantOpen = routes.rows
-    .filter((r) => String(r.code).endsWith("A"))
-    .filter((r) => String(r.default_assistant || "").toUpperCase() === "OPEN")
-    .map((r) => makeDefaultOpsRow(r.code));
-
-  return { date, drivers: driverOpen, assistants: assistantOpen, blocks: defaultBlocks() };
+  // Template-based Day Sheet: 28 rows per sheet (Drivers + Assistants).
+  // Dispatcher selects Route/Employee and fills runs; dropdowns enforce consistency.
+  const makeRows = () => Array.from({ length: 28 }, () => makeDefaultOpsRow(""));
+  return { date, drivers: makeRows(), assistants: makeRows(), blocks: defaultBlocks() };
 }
 
-// Get / Save ops day sheet inside day_sheets.data.opsDaySheet
+
+// Get / Save ops day sheet inside day_sheets.data.opsDaySheet inside day_sheets.data.opsDaySheet
 app.get("/api/ops-daysheet", authRequired, async (req, res) => {
   const date = req.query.date;
   if (!date) return res.status(400).send("date required");
