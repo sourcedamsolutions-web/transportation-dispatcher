@@ -277,6 +277,8 @@ function DaySheetTab({ date }: { date: string }) {
   };
 
   useEffect(() => {
+    document.title = `${APP_NAME} ${APP_VERSION}`;
+
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date]);
