@@ -166,17 +166,6 @@ function AdminPanel(){
         }}>Add/Update User</button>
       </div>
 
-      <table className="grid" style={{marginTop:10}}>
-        <thead><tr><th>Name</th><th>Role</th><th>Active</th><th>Actions</th></tr></thead>
-        <tbody>
-          {users.map(u=>(
-            <tr key={u.id}>
-              <td>{u.name}</td><td>{u.role}</td><td>{String(u.active)}</td>
-              <td><button onClick={async()=>{ await api('/api/users/'+u.id+'/toggle', {method:'POST'}); await load(); }}>Toggle Active</button></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
+     <div className="daysheet-wrap">
+  <table className="daysheet-grid" style={{ marginTop: 8 }}>
+
