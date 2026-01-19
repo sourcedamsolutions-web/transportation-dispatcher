@@ -510,6 +510,12 @@ function DaySheetTab({ date }: { date: string }) {
 }
 
 function CalloutsTab({ date }: { date: string }) {
+  const th: React.CSSProperties = { border: "1px solid #cfd8e3", padding: "6px 8px", background: "#f7f9fc", textAlign: "left" };
+  const td: React.CSSProperties = { border: "1px solid #cfd8e3", padding: "6px 8px" };
+  const tdc: React.CSSProperties = { border: "1px solid #cfd8e3", padding: "6px 8px", textAlign: "center" };
+  const sel: React.CSSProperties = { width: "100%", padding: "6px 8px", border: "1px solid #cfd8e3", borderRadius: 6 };
+  const btn: React.CSSProperties = { padding: "8px 10px", borderRadius: 10, border: "1px solid #cfd8e3", background: "white", cursor: "pointer" };
+  const btnSmall: React.CSSProperties = { padding: "6px 10px", borderRadius: 10, border: "1px solid #cfd8e3", background: "white", cursor: "pointer", fontSize: 12 };
   type Callout = { name: string; amOut: boolean; pmOut: boolean; reason: string };
   type CoverageOption = any;
 
@@ -660,6 +666,10 @@ function CalloutsTab({ date }: { date: string }) {
       </div>
     );
   };
+
+  if (!sheet) {
+    return <div style={{ padding: 10, fontSize: 13 }}>Loading Call-Outs…</div>;
+  }
 
   return (
     <div>
