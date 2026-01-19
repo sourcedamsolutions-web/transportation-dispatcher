@@ -1,0 +1,16 @@
+{
+  "name": "transportation-dispatcher",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "build": "npm run build -w client",
+    "start": "node server/index.js",
+    "dev": "concurrently \"npm run dev -w server\" \"npm run dev -w client\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}
