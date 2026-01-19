@@ -138,7 +138,6 @@ app.get('/api/generate', authRequired, async (req, res) => {
   res.json(example);
 });
 
-// Serve built client
 const clientDist = path.join(__dirname, '..', 'client', 'dist');
 app.use(express.static(clientDist));
 app.get('*', (req, res) => res.sendFile(path.join(clientDist, 'index.html')));
