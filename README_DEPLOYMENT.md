@@ -22,3 +22,7 @@
 ## Login
 Name: Ray
 PIN: 619511
+
+
+## v1.2.1
+- Layout lock (v1.2) + server stability fix (no single-quote SQL bug)
