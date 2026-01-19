@@ -95,42 +95,82 @@ function DaySheetBoard({sheet, onSave}:{sheet:DaySheet, onSave:(s:DaySheet)=>Pro
         </div>
       </div>
 
-      <table className="grid" style={{marginTop:8}}>
-        <thead>
-          <tr>
-            <th style={{width:'140px'}}>Route</th>
-            <th className="am">AM 1st</th><th className="am">AM 2nd</th><th className="am">AM 3rd</th><th className="am">AM 4th</th>
-            <th className="pm">PM 1st</th><th className="pm">PM 2nd</th><th className="pm">PM 3rd</th><th className="pm">PM 4th</th>
-          </tr>
-        </thead>
-        <tbody>
-          {Object.entries(local.board || {}).map(([route, row])=> (
-            <tr key={route}>
-              <td><b>{route}</b></td>
-              {Array.from({length:8}).map((_,i)=> (
-                <td key={i}>
-                  <input style={{width:'100%'}} value={(row?.cells?.[i] || '')} onChange={(e)=>{
-                    const v = e.target.value;
-                    setLocal(prev=>{
-                      const next:DaySheet = JSON.parse(JSON.stringify(prev));
-                      next.board[route].cells[i] = v;
-                      return next;
-                    })
-                  }} />
-                  <div className="small">✔ <input type="checkbox" checked={!!row?.notified?.[i]} onChange={(e)=>{
-                    const checked = e.target.checked;
-                    setLocal(prev=>{
-                      const next:DaySheet = JSON.parse(JSON.stringify(prev));
-                      next.board[route].notified[i] = checked;
-                      return next;
-                    })
-                  }}/></div>
-                </td>
-              ))}
+      <div className="daysheet-wrap">
+        <table className="daysheet-grid" style={{marginTop:8}}
+        >
+          <thead>
+            <tr>
+              <th className="route-col">Route</th>
+              <th className="am run-col">AM 1st</th><th className="am run-col">AM 2nd</th><th className="am run-col">AM 3rd</th><th className="am run-col">AM 4th</th>
+              <th className="pm run-col">PM 1st</th><th className="pm run-col">PM 2nd</th><th className="pm run-col">PM 3rd</th><th className="pm run-col">PM 4th</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {(() => {
+              const entries = Object.entries(local.board || {});
+              const rows: any[] = [];
+              let insertedBasic = false;
+              let insertedESE = false;
+
+              const pushSection = (label: string) => rows.push(
+                <tr className="section-row" key={"section-"+label}>
+                  <td colSpan={9}>{label}</td>
+                </tr>
+              );
+
+              for (const [route, row] of entries) {
+                if (!insertedBasic) {
+                  pushSection('BASIC ROUTES (Z500–Z521)');
+                  insertedBasic = true;
+                }
+                if (!insertedESE && route.startsWith('Z56')) {
+                  pushSection('ESE ROUTES (Z560–Z588)');
+                  insertedESE = true;
+                }
+
+                rows.push(
+                  <tr key={route}>
+                    <td className="route-col"><b>{route}</b></td>
+                    {Array.from({length:8}).map((_,i)=> (
+                      <td key={i} className="run-col">
+                        <input
+                          className="cell-input"
+                          value={(row?.cells?.[i] || '')}
+                          onChange={(e)=>{
+                            const v = e.target.value;
+                            setLocal(prev=>{
+                              const next:DaySheet = JSON.parse(JSON.stringify(prev));
+                              next.board[route].cells[i] = v;
+                              return next;
+                            })
+                          }}
+                        />
+                        <div className="cell-footer">
+                          ✔
+                          <input
+                            type="checkbox"
+                            checked={!!row?.notified?.[i]}
+                            onChange={(e)=>{
+                              const checked = e.target.checked;
+                              setLocal(prev=>{
+                                const next:DaySheet = JSON.parse(JSON.stringify(prev));
+                                next.board[route].notified[i] = checked;
+                                return next;
+                              })
+                            }}
+                          />
+                        </div>
+                      </td>
+                    ))}
+                  </tr>
+                );
+              }
+
+              return rows;
+            })()}
+          </tbody>
+        </table>
+      </div>
 
       <div style={{marginTop:10}} className="small">AM is highlighted yellow; PM is highlighted orange; prints in portrait.</div>
     </div>
@@ -166,6 +206,17 @@ function AdminPanel(){
         }}>Add/Update User</button>
       </div>
 
-     <div className="daysheet-wrap">
-  <table className="daysheet-grid" style={{ marginTop: 8 }}>
-
+      <table className="grid" style={{marginTop:10}}>
+        <thead><tr><th>Name</th><th>Role</th><th>Active</th><th>Actions</th></tr></thead>
+        <tbody>
+          {users.map(u=>(
+            <tr key={u.id}>
+              <td>{u.name}</td><td>{u.role}</td><td>{String(u.active)}</td>
+              <td><button onClick={async()=>{ await api('/api/users/'+u.id+'/toggle', {method:'POST'}); await load(); }}>Toggle Active</button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}

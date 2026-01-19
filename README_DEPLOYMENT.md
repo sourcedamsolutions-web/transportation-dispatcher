@@ -1,6 +1,6 @@
-# Transportation Dispatcher (MVP v1.1) – Route Roster Wired
+# Transportation Dispatcher (MVP v1.2) – Route Roster Wired
 
-### What’s new in v1.1
+### What’s new in v1.2
 - Loads the full Route Roster from the uploaded inventory PDF (seeded into Postgres)
 - Day Sheet auto-lists ALL routes (Z500+ and Z560+ plus A-variants)
 - Default AM 1st cell is prefilled with the assigned Driver/Assistant from inventory (or OPEN)
