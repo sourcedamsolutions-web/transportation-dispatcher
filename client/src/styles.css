@@ -20,3 +20,70 @@ button { cursor: pointer; }
   .card { box-shadow:none; }
   @page { size: letter portrait; margin: 0.4in; }
 }
+/* ===== Day Sheet Layout Lock v1.2 ===== */
+
+.daysheet-wrap { overflow-x: auto; }
+
+.daysheet-grid {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed; /* critical: locks widths */
+}
+
+.daysheet-grid th, .daysheet-grid td {
+  border: 1px solid #222;
+  padding: 4px;
+  vertical-align: top;
+}
+
+.daysheet-grid th.route-col,
+.daysheet-grid td.route-col {
+  width: 140px; /* locked */
+  font-weight: bold;
+}
+
+.daysheet-grid th.run-col,
+.daysheet-grid td.run-col {
+  width: 118px; /* locked - adjust once to match your scan */
+}
+
+.daysheet-grid td { height: 46px; } /* locked row height */
+
+.cell-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 12px;
+}
+
+.cell-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  margin-top: 2px;
+}
+
+.section-row td {
+  background: #eaeaea;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Print tuning */
+@media print {
+  .daysheet-wrap { overflow: visible !important; }
+
+  .daysheet-grid th.route-col,
+  .daysheet-grid td.route-col { width: 120px; }
+
+  .daysheet-grid th.run-col,
+  .daysheet-grid td.run-col { width: 95px; }
+
+  .daysheet-grid td { height: 42px; }
+
+  .cell-input { font-size: 11px; }
+}
