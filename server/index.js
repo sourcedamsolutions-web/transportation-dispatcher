@@ -70,11 +70,14 @@ function requireRole(roles) {
 
 async function getRouteCodesOrdered() {
   const r = await pool.query(
-    `select code, default_driver, default_assistant
-     from routes
-     order by
-       cast(substring(code from 2 for 3) as int),
-       case when right(code,1)='A' then 1 else 0 end`
+    const r = await pool.query(`
+  select code, category, requires_assistant, default_driver, default_assistant, bus
+  from routes
+  order by
+    cast(substring(code from 2 for 3) as int),
+    case when right(code,1)='A' then 1 else 0 end
+`);
+
   );
   return r.rows;
 }
