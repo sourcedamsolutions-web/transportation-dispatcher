@@ -515,17 +515,6 @@ function CalloutsTab() {
   );
 }
 
- {
-  return (
-    <div>
-      <h3 style={{ margin: "10px 0 6px" }}>Call-Outs + Coverage Options</h3>
-      <div style={{ fontSize: 13, lineHeight: 1.4, maxWidth: 980 }}>
-        Coming next: enter driver/assistant call-outs (by AM/PM segment and run), generate 1–3 coverage options using your priority
-        rules (relief first, supervisors next, cross-depot as last resort). Choosing an option will populate the Day Sheet.
-      </div>
-    </div>
-  );
-}
 
 function AdminPanel() {
   const [users, setUsers] = useState<User[]>([]);
