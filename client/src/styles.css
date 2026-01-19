@@ -133,3 +133,46 @@ button { cursor: pointer; }
 .block-title { font-weight: 700; margin-bottom: 4px; }
 .blocks-grid textarea { width: 100%; height: 110px; resize: vertical; }
 
+
+/* ===== Day Sheet Tight Layout (match PDF spacing) ===== */
+.daysheet-wrap { max-width: 8.5in; margin: 0 auto; }
+.ops-grid { font-family: Arial, Helvetica, sans-serif; font-size: 11px; table-layout: fixed; width: 100%; }
+.ops-grid th { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.2px; }
+.ops-grid th, .ops-grid td { padding: 2px 3px; }
+.ops-grid thead tr { height: 20px; }
+.ops-grid tbody tr { height: 22px; }
+.ops-grid tbody td { height: 22px; }
+
+/* Column widths tuned for Letter portrait */
+.ops-route { width: 0.85in; }
+.ops-emp { width: 1.95in; }
+.ops-rtn { width: 0.55in; }
+.ops-leave { width: 0.75in; }
+.ops-run { width: 0.85in; }
+
+/* Inputs/selects match compact sheet */
+.ops-grid select, .ops-grid input { font-size: 11px; height: 18px; line-height: 18px; }
+.ops-grid select { width: 100%; }
+.ops-cell { height: 18px; line-height: 18px; padding-right: 18px; }
+
+/* Print: force Letter portrait and consistent margins */
+@page {
+  size: Letter portrait;
+  margin: 0.35in 0.35in 0.4in 0.35in;
+}
+@media print {
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .tabs, .topbar, button { display: none !important; }
+  .daysheet-wrap { max-width: 8.5in; }
+  .ops-grid th, .ops-grid td { border: 1px solid #000; }
+  .ops-grid tbody tr { height: 21px; }
+  .ops-grid tbody td { height: 21px; }
+  .ops-grid { page-break-inside: avoid; }
+  .print-page { break-after: page; }
+}
+
+/* Blocks page: fixed boxes similar to paper */
+.blocks-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+.blocks-grid textarea { height: 120px; }
+.block-title { font-size: 10px; text-transform: uppercase; }
+

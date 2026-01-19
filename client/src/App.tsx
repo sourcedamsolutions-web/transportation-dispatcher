@@ -227,8 +227,8 @@ function DaySheetTab({ date }: { date: string }) {
     employee: string;
     rtn: string;
     leaveCode: string;
-    am: OpsCell[]; // 8 cells (1-4 + Add'l 5-8)
-    pm: OpsCell[]; // 8 cells (1-4 + Add'l 5-8)
+    am: OpsCell[]; // 5 cells (1-4 + Add'l 5)
+    pm: OpsCell[]; // 5 cells (1-4 + Add'l 5)
   };
   type OpsBlocks = {
     other: string;
@@ -458,7 +458,7 @@ function DaySheetTab({ date }: { date: string }) {
     if (!sheet) return null;
     return (
       <div className="print-page">
-        <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 6 }}>Additional Blocks (Print Page 2)</div>
+        <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 6 }}>Additional Blocks (Print Page 3)</div>
         <div className="blocks-grid">
           <div>
             <div className="block-title">OTHER</div>
