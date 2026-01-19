@@ -1,3 +1,19 @@
+
+async function apiGet(path: string) {
+  const r = await fetch(API_BASE + path, { credentials: "include" });
+  if (!r.ok) throw new Error(await r.text());
+  return await r.json();
+}
+async function apiPost(path: string, body?: any) {
+  const r = await fetch(API_BASE + path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify(body || {})
+  });
+  if (!r.ok) throw new Error(await r.text());
+  return await r.json();
+}
 import React, { useEffect, useMemo, useState } from "react";
 
 type User = { id: number; name: string; role: string; active: boolean };
