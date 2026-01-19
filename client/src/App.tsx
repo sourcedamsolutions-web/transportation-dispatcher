@@ -509,18 +509,205 @@ function DaySheetTab({ date }: { date: string }) {
   );
 }
 
-function CalloutsTab() {
+function CalloutsTab({ date }: { date: string }) {
+  type Callout = { name: string; amOut: boolean; pmOut: boolean; reason: string };
+  type CoverageOption = any;
+
+  const [routes, setRoutes] = useState<any[]>([]);
+  const [sheet, setSheet] = useState<any>(null);
+  const [err, setErr] = useState("");
+  const [options, setOptions] = useState<CoverageOption[]>([]);
+  const [generating, setGenerating] = useState(false);
+
+  useEffect(() => {
+    apiGet("/api/routes")
+      .then(setRoutes)
+      .catch((e) => setErr(String(e?.message || e)));
+  }, []);
+
+  useEffect(() => {
+    apiGet(`/api/ops-daysheet?date=${date}`)
+      .then((s: any) => {
+        setSheet(s);
+        setOptions(s.coverageOptions || []);
+      })
+      .catch((e) => setErr(String(e?.message || e)));
+  }, [date]);
+
+  const leaveCodeOptions = ["", "SIK", "FMLA", "WC", "PRS"];
+  const yesNo = ["YES", "NO"];
+
+  const driverNames = useMemo(() => {
+    const defaults = routes
+      .filter((r) => !(String(r.code || "").toUpperCase().endsWith("A")))
+      .map((r) => String(r.default_driver || "").trim())
+      .filter(Boolean);
+    const reliefFirst = ["Julia", "Noel", "Lizette", "Myra", "Jeff", "Ray", "Nic", "Rachael"];
+    return Array.from(new Set([...reliefFirst, ...defaults].map((x) => x.trim()).filter(Boolean)));
+  }, [routes]);
+
+  const assistantNames = useMemo(() => {
+    const defaults = routes
+      .filter((r) => String(r.code || "").toUpperCase().endsWith("A"))
+      .map((r) => String(r.default_assistant || "").trim())
+      .filter(Boolean);
+    return Array.from(new Set(defaults.map((x) => x.trim()).filter(Boolean)));
+  }, [routes]);
+
+  const calloutsDrivers: Callout[] = sheet?.callouts?.drivers || [];
+  const calloutsAssistants: Callout[] = sheet?.callouts?.assistants || [];
+
+  function updateCallout(kind: "drivers" | "assistants", idx: number, patch: Partial<Callout>) {
+    const next = { ...(sheet || {}) };
+    next.callouts = next.callouts || { drivers: [], assistants: [] };
+    const arr: Callout[] = [...(next.callouts[kind] || [])];
+    arr[idx] = { ...(arr[idx] || { name: "", amOut: false, pmOut: false, reason: "" }), ...patch };
+    next.callouts[kind] = arr;
+    setSheet(next);
+  }
+
+  function addCallout(kind: "drivers" | "assistants") {
+    const next = { ...(sheet || {}) };
+    next.callouts = next.callouts || { drivers: [], assistants: [] };
+    next.callouts[kind] = [...(next.callouts[kind] || []), { name: "", amOut: true, pmOut: true, reason: "" }];
+    setSheet(next);
+  }
+
+  async function saveCallouts() {
+    if (!sheet) return;
+    setErr("");
+    try {
+      await apiPost("/api/ops-daysheet", sheet);
+    } catch (e: any) {
+      setErr(String(e?.message || e));
+    }
+  }
+
+  async function generateOptions() {
+    setGenerating(true);
+    setErr("");
+    try {
+      await saveCallouts(); // persist before generating
+      const r = await apiGet(`/api/coverage-options?date=${date}`);
+      setOptions(r.options || []);
+      // refresh sheet to get stored options
+      const s2 = await apiGet(`/api/ops-daysheet?date=${date}`);
+      setSheet(s2);
+    } catch (e: any) {
+      setErr(String(e?.message || e));
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  async function applyOption(i: number) {
+    setErr("");
+    try {
+      const r = await apiPost("/api/apply-coverage-option", { date, optionIndex: i });
+      setSheet(r.opsDaySheet);
+      setOptions(r.opsDaySheet?.coverageOptions || []);
+      alert("Applied coverage option to Day Sheet. Go to the Day Sheet tab to review and adjust.");
+    } catch (e: any) {
+      setErr(String(e?.message || e));
+    }
+  }
+
+  const CalloutTable = ({ title, kind, names }: { title: string; kind: "drivers" | "assistants"; names: string[] }) => {
+    const rows: Callout[] = kind === "drivers" ? calloutsDrivers : calloutsAssistants;
+    return (
+      <div style={{ marginTop: 10 }}>
+        <div style={{ fontWeight: 700, marginBottom: 6 }}>{title}</div>
+        <table style={{ borderCollapse: "collapse", width: "100%", maxWidth: 980, fontSize: 13 }}>
+          <thead>
+            <tr>
+              <th style={th}>Employee</th>
+              <th style={th}>AM Out</th>
+              <th style={th}>PM Out</th>
+              <th style={th}>Leave Code</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, idx) => (
+              <tr key={idx}>
+                <td style={td}>
+                  <select value={r.name || ""} onChange={(e) => updateCallout(kind, idx, { name: e.target.value })} style={sel}>
+                    <option value=""></option>
+                    {names.map((n) => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                </td>
+                <td style={tdc}>
+                  <input type="checkbox" checked={!!r.amOut} onChange={(e) => updateCallout(kind, idx, { amOut: e.target.checked })} />
+                </td>
+                <td style={tdc}>
+                  <input type="checkbox" checked={!!r.pmOut} onChange={(e) => updateCallout(kind, idx, { pmOut: e.target.checked })} />
+                </td>
+                <td style={td}>
+                  <select value={r.reason || ""} onChange={(e) => updateCallout(kind, idx, { reason: e.target.value })} style={sel}>
+                    {leaveCodeOptions.map((x) => (
+                      <option key={x} value={x}>{x}</option>
+                    ))}
+                  </select>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div style={{ marginTop: 6 }}>
+          <button style={btnSmall} onClick={() => addCallout(kind)}>+ Add Call-Out</button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div>
       <h3 style={{ margin: "10px 0 6px" }}>Call-Outs + Coverage Options</h3>
       <div style={{ fontSize: 13, lineHeight: 1.4, maxWidth: 980 }}>
-        Coming next: enter driver/assistant call-outs (by AM/PM segment and run), generate 1–3 coverage options using your priority
-        rules (relief first, supervisors next, cross-depot as last resort). Choosing an option will populate the Day Sheet.
+        Enter call-outs (AM/PM tracked separately), then generate 1–3 globally optimized coverage options. Apply an option to populate the Day Sheet (you can still edit manually).
+      </div>
+
+      {err && <div style={{ color: "crimson", marginTop: 8 }}>{err}</div>}
+
+      <CalloutTable title="Drivers Call-Outs" kind="drivers" names={driverNames} />
+      <CalloutTable title="Assistants Call-Outs" kind="assistants" names={assistantNames} />
+
+      <div style={{ marginTop: 10 }}>
+        <button style={btn} onClick={saveCallouts}>Save Call-Outs</button>{" "}
+        <button style={btn} onClick={generateOptions} disabled={generating}>{generating ? "Generating..." : "Generate 1–3 Options"}</button>
+      </div>
+
+      <div style={{ marginTop: 12, maxWidth: 980 }}>
+        <div style={{ fontWeight: 700, marginBottom: 6 }}>Coverage Options</div>
+        {options.length === 0 ? (
+          <div style={{ fontSize: 13, opacity: 0.8 }}>No options generated yet.</div>
+        ) : (
+          options.map((o: any, idx: number) => (
+            <div key={idx} style={{ border: "1px solid #ddd", borderRadius: 10, padding: 10, marginBottom: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <div style={{ fontWeight: 700 }}>{o.title || `Option ${idx + 1}`}</div>
+                <button style={btnSmall} onClick={() => applyOption(idx)}>Apply this option</button>
+              </div>
+              <div style={{ fontSize: 12, marginTop: 6, lineHeight: 1.4 }}>
+                <div><b>Drivers AM open:</b> {(o.drivers?.am || []).length} | <b>PM open:</b> {(o.drivers?.pm || []).length}</div>
+                <div><b>Assistants AM open:</b> {(o.assistants?.am || []).length} | <b>PM open:</b> {(o.assistants?.pm || []).length}</div>
+                {(o.warnings || []).length > 0 && (
+                  <div style={{ marginTop: 6 }}>
+                    <b>Warnings:</b>
+                    <ul style={{ margin: "4px 0 0 18px" }}>
+                      {(o.warnings || []).slice(0, 8).map((w: string, i: number) => <li key={i}>{w}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
 }
-
 
 function AdminPanel() {
   const [users, setUsers] = useState<User[]>([]);
@@ -668,7 +855,7 @@ export default function App() {
         <RosterBoard date={date} board={board} setBoard={setBoard} onGenerate={generate} onSave={save} />
       ) : null}
       {activeTab === "daysheet" ? <DaySheetTab date={date} /> : null}
-      {activeTab === "callouts" ? <CalloutsTab /> : null}
+      {activeTab === "callouts" ? <CalloutsTab date={date} /> : null}
 
       {activeTab === "admin" && user.role === "admin" ? <AdminPanel /> : null}
     </div>

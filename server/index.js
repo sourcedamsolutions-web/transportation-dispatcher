@@ -221,7 +221,7 @@ async function buildDefaultOpsSheet(date) {
   // Template-based Day Sheet: 28 rows per sheet (Drivers + Assistants).
   // Dispatcher selects Route/Employee and fills runs; dropdowns enforce consistency.
   const makeRows = () => Array.from({ length: 28 }, () => makeDefaultOpsRow(""));
-  return { date, drivers: makeRows(), assistants: makeRows(), blocks: defaultBlocks() };
+  return { date, drivers: makeRows(), assistants: makeRows(), blocks: defaultBlocks(), callouts: { drivers: [], assistants: [] }, coverageOptions: [], selectedOption: null };
 }
 
 
@@ -256,6 +256,268 @@ app.post("/api/ops-daysheet", authRequired, async (req, res) => {
     [body.date, JSON.stringify(merged)]
   );
   res.json({ ok: true });
+
+// ---- Coverage generation (MVP v1) ----
+const RELIEF_DRIVERS = ["Julia", "Noel", "Lizette", "Myra", "Jeff"];
+const SUPERVISORS_PRIMARY = ["Ray", "Nic"];
+const SUPERVISORS_EXTREME = ["Rachael"];
+
+function normName(x) { return String(x||"").trim(); }
+
+function unique(arr) {
+  const out = [];
+  const seen = new Set();
+  for (const a of arr) {
+    const k = normName(a);
+    if (!k) continue;
+    if (seen.has(k.toLowerCase())) continue;
+    seen.add(k.toLowerCase());
+    out.push(k);
+  }
+  return out;
+}
+
+async function getAllDriverNames() {
+  const r = await pool.query("select distinct default_driver as name from routes where default_driver is not null and default_driver <> '' and right(code,1) <> 'A'");
+  const names = r.rows.map(x => x.name);
+  return unique([...RELIEF_DRIVERS, ...SUPERVISORS_PRIMARY, ...SUPERVISORS_EXTREME, ...names]);
+}
+
+async function getAllAssistantNames() {
+  const r = await pool.query("select distinct default_assistant as name from routes where default_assistant is not null and default_assistant <> '' and right(code,1) = 'A'");
+  return unique(r.rows.map(x => x.name));
+}
+
+function buildOutSet(callouts, half) {
+  const out = new Set();
+  for (const c of (callouts||[])) {
+    const n = normName(c.name);
+    if (!n) continue;
+    if (half === "am" && c.amOut) out.add(n.toLowerCase());
+    if (half === "pm" && c.pmOut) out.add(n.toLowerCase());
+  }
+  return out;
+}
+
+function covererCost(name, counts, mode) {
+  const n = normName(name);
+  const lc = n.toLowerCase();
+  let base = 3;
+  if (RELIEF_DRIVERS.map(x=>x.toLowerCase()).includes(lc)) base = 1;
+  if (SUPERVISORS_PRIMARY.map(x=>x.toLowerCase()).includes(lc)) base = (mode === 2 ? 1.5 : 2);
+  if (SUPERVISORS_EXTREME.map(x=>x.toLowerCase()).includes(lc)) base = 4;
+
+  const used = counts.get(lc) || 0;
+  // allow multiple assignments but penalize repeats
+  return base + used * (mode === 3 ? 0.4 : 0.7);
+}
+
+function pickCoverer(candidates, counts, mode) {
+  let best = null;
+  let bestScore = 1e9;
+  for (const c of candidates) {
+    const score = covererCost(c, counts, mode);
+    if (score < bestScore) { best = c; bestScore = score; }
+  }
+  return best;
+}
+
+async function computeCoverageOptions(date, opsDaySheet) {
+  // Determine uncovered routes based on roster defaults + callouts.
+  const routes = await pool.query("select code, requires_assistant, default_driver, default_assistant from routes order by cast(substring(code from 2 for 3) as int), case when right(code,1)='A' then 1 else 0 end");
+  const driverOutAM = buildOutSet(opsDaySheet?.callouts?.drivers, "am");
+  const driverOutPM = buildOutSet(opsDaySheet?.callouts?.drivers, "pm");
+  const asstOutAM  = buildOutSet(opsDaySheet?.callouts?.assistants, "am");
+  const asstOutPM  = buildOutSet(opsDaySheet?.callouts?.assistants, "pm");
+
+  const allDrivers = await getAllDriverNames();
+  const allAssistants = await getAllAssistantNames();
+
+  const options = [];
+  for (const mode of [1,2,3]) {
+    const driverCountsAM = new Map();
+    const driverCountsPM = new Map();
+    const asstCountsAM = new Map();
+    const asstCountsPM = new Map();
+
+    const driverAssignmentsAM = [];
+    const driverAssignmentsPM = [];
+    const asstAssignmentsAM = [];
+    const asstAssignmentsPM = [];
+    const warnings = [];
+
+    // build candidate pools (available)
+    const driversAvailAM = allDrivers.filter(n => !driverOutAM.has(n.toLowerCase()));
+    const driversAvailPM = allDrivers.filter(n => !driverOutPM.has(n.toLowerCase()));
+    const asstAvailAM = allAssistants.filter(n => !asstOutAM.has(n.toLowerCase()));
+    const asstAvailPM = allAssistants.filter(n => !asstOutPM.has(n.toLowerCase()));
+
+    for (const r of routes.rows) {
+      const code = r.code;
+      const isAsst = String(code||"").toUpperCase().endsWith("A");
+      if (!isAsst) {
+        const def = normName(r.default_driver) || "OPEN";
+        const defOutAM = (def !== "OPEN" && driverOutAM.has(def.toLowerCase()));
+        const defOutPM = (def !== "OPEN" && driverOutPM.has(def.toLowerCase()));
+        const needsAM = (def === "OPEN") || defOutAM;
+        const needsPM = (def === "OPEN") || defOutPM;
+
+        if (needsAM) {
+          const cov = pickCoverer(driversAvailAM, driverCountsAM, mode) || "OTHER DEPOT";
+          const lc = cov.toLowerCase();
+          driverCountsAM.set(lc, (driverCountsAM.get(lc)||0) + 1);
+          driverAssignmentsAM.push({ route: code, absent: def, cover: cov });
+          if (cov === "OTHER DEPOT") warnings.push(`AM ${code}: other depot assistance needed`);
+        }
+        if (needsPM) {
+          const cov = pickCoverer(driversAvailPM, driverCountsPM, mode) || "OTHER DEPOT";
+          const lc = cov.toLowerCase();
+          driverCountsPM.set(lc, (driverCountsPM.get(lc)||0) + 1);
+          driverAssignmentsPM.push({ route: code, absent: def, cover: cov });
+          if (cov === "OTHER DEPOT") warnings.push(`PM ${code}: other depot assistance needed`);
+        }
+      } else {
+        const def = normName(r.default_assistant) || "OPEN";
+        const defOutAM = (def !== "OPEN" && asstOutAM.has(def.toLowerCase()));
+        const defOutPM = (def !== "OPEN" && asstOutPM.has(def.toLowerCase()));
+        const needsAM = (def === "OPEN") || defOutAM;
+        const needsPM = (def === "OPEN") || defOutPM;
+
+        if (needsAM) {
+          const cov = pickCoverer(asstAvailAM, asstCountsAM, mode) || "OTHER DEPOT";
+          const lc = cov.toLowerCase();
+          asstCountsAM.set(lc, (asstCountsAM.get(lc)||0) + 1);
+          asstAssignmentsAM.push({ route: code, absent: def, cover: cov });
+          if (cov === "OTHER DEPOT") warnings.push(`AM ${code}: other depot assistance needed`);
+        }
+        if (needsPM) {
+          const cov = pickCoverer(asstAvailPM, asstCountsPM, mode) || "OTHER DEPOT";
+          const lc = cov.toLowerCase();
+          asstCountsPM.set(lc, (asstCountsPM.get(lc)||0) + 1);
+          asstAssignmentsPM.push({ route: code, absent: def, cover: cov });
+          if (cov === "OTHER DEPOT") warnings.push(`PM ${code}: other depot assistance needed`);
+        }
+      }
+    }
+
+    options.push({
+      mode,
+      title: mode === 1 ? "Option 1 (Relief first)" : mode === 2 ? "Option 2 (More supervisor usage)" : "Option 3 (Emergency / other depot)",
+      drivers: { am: driverAssignmentsAM, pm: driverAssignmentsPM },
+      assistants: { am: asstAssignmentsAM, pm: asstAssignmentsPM },
+      warnings
+    });
+  }
+  return options;
+}
+
+function reasonFor(name, callouts, half) {
+  const lc = String(name||"").trim().toLowerCase();
+  for (const c of (callouts||[])) {
+    const n = normName(c.name).toLowerCase();
+    if (n === lc) {
+      if (half === "am" && c.amOut) return c.reason || "";
+      if (half === "pm" && c.pmOut) return c.reason || "";
+    }
+  }
+  return "";
+}
+
+function applyOptionToOpsSheet(ops, option) {
+  // Do not destroy existing rows; fill/merge into first empty rows or matching route rows.
+  const ensureRow = (rows, route) => {
+    const idx = rows.findIndex(r => (r.route||"").trim().toUpperCase() === String(route).toUpperCase());
+    if (idx >= 0) return rows[idx];
+    const emptyIdx = rows.findIndex(r => !String(r.route||"").trim());
+    const targetIdx = emptyIdx >= 0 ? emptyIdx : rows.length - 1;
+    if (emptyIdx < 0) rows.push({ ...rows[rows.length-1] });
+    const row = rows[targetIdx];
+    row.route = route;
+    return row;
+  };
+
+  // Drivers
+  for (const a of option.drivers.am) {
+    const row = ensureRow(ops.drivers, a.route);
+    row.employee = a.absent || "OPEN";
+    row.rtn = "NO";
+    row.leaveCode = reasonFor(a.absent, ops.callouts?.drivers, "am");
+    row.am[0].value = a.cover;
+  }
+  for (const a of option.drivers.pm) {
+    const row = ensureRow(ops.drivers, a.route);
+    row.employee = a.absent || "OPEN";
+    row.rtn = "NO";
+    row.leaveCode = reasonFor(a.absent, ops.callouts?.drivers, "pm");
+    row.pm[0].value = a.cover;
+  }
+
+  // Assistants (A routes)
+  for (const a of option.assistants.am) {
+    const row = ensureRow(ops.assistants, a.route);
+    row.employee = a.absent || "OPEN";
+    row.rtn = "NO";
+    row.leaveCode = reasonFor(a.absent, ops.callouts?.assistants, "am");
+    row.am[0].value = a.cover;
+  }
+  for (const a of option.assistants.pm) {
+    const row = ensureRow(ops.assistants, a.route);
+    row.employee = a.absent || "OPEN";
+    row.rtn = "NO";
+    row.leaveCode = reasonFor(a.absent, ops.callouts?.assistants, "pm");
+    row.pm[0].value = a.cover;
+  }
+
+  return ops;
+}
+
+// Generate options and store under opsDaySheet for the date
+app.get("/api/coverage-options", authRequired, async (req, res) => {
+  const date = req.query.date;
+  if (!date) return res.status(400).send("date required");
+
+  const r = await pool.query("select data from day_sheets where day=$1", [date]);
+  const existing = r.rowCount ? (r.rows[0].data || {}) : {};
+  const ops = existing.opsDaySheet || (await buildDefaultOpsSheet(date));
+
+  const options = await computeCoverageOptions(date, ops);
+  ops.coverageOptions = options;
+  ops.selectedOption = null;
+
+  const merged = { ...existing, opsDaySheet: ops };
+  await pool.query(
+    `insert into day_sheets (day, data) values ($1, $2::jsonb)
+     on conflict (day) do update set data=$2::jsonb, updated_at=now()`,
+    [date, JSON.stringify(merged)]
+  );
+  res.json({ options });
+});
+
+app.post("/api/apply-coverage-option", authRequired, async (req, res) => {
+  const { date, optionIndex } = req.body || {};
+  if (!date && date !== "") return res.status(400).send("date required");
+  if (optionIndex === undefined || optionIndex === null) return res.status(400).send("optionIndex required");
+
+  const r = await pool.query("select data from day_sheets where day=$1", [date]);
+  const existing = r.rowCount ? (r.rows[0].data || {}) : {};
+  const ops = existing.opsDaySheet || (await buildDefaultOpsSheet(date));
+  const options = ops.coverageOptions || [];
+  const opt = options[Number(optionIndex)];
+  if (!opt) return res.status(400).send("invalid optionIndex");
+
+  const updated = applyOptionToOpsSheet(ops, opt);
+  updated.selectedOption = Number(optionIndex);
+
+  const merged = { ...existing, opsDaySheet: updated };
+  await pool.query(
+    `insert into day_sheets (day, data) values ($1, $2::jsonb)
+     on conflict (day) do update set data=$2::jsonb, updated_at=now()`, 
+    [date, JSON.stringify(merged)]
+  );
+  res.json({ ok: true, opsDaySheet: updated });
+});
+
+
 });
 
 // Day sheets
