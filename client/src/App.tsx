@@ -797,6 +797,28 @@ function AdminPanel() {
 }
 
 export default function App() {
+  const [clientError, setClientError] = useState<string>("");
+  useEffect(() => {
+    const handler = (msg: any, src?: any, line?: any, col?: any, err?: any) => {
+      const text = String((msg as any)?.message || msg);
+      setClientError(text);
+      fetch("/api/client-log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "window.onerror", text, src, line, col }) }).catch(() => {});
+      return false;
+    };
+    const onRej = (e: any) => {
+      const text = String(e?.reason?.message || e?.reason || e);
+      setClientError(text);
+      fetch("/api/client-log", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "unhandledrejection", text }) }).catch(() => {});
+    };
+    // @ts-ignore
+    window.onerror = handler;
+    window.addEventListener("unhandledrejection", onRej);
+    return () => {
+      // @ts-ignore
+      window.onerror = null;
+      window.removeEventListener("unhandledrejection", onRej);
+    };
+  }, []);
   const [user, setUser] = useState<User | null>(null);
   const [date, setDate] = useState(todayISO());
   const [board, setBoard] = useState<Board>({});

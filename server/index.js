@@ -124,6 +124,12 @@ app.set("trust proxy", 1);
 app.use(express.json({ limit: "2mb" }));
 app.use(cookieParser());
 
+app.post("/api/client-log", (req,res)=>{
+  try{ console.error("CLIENT_LOG:", JSON.stringify(req.body||{})); }
+  catch(e){ console.error("CLIENT_LOG_ERR", e); }
+  res.json({ok:true});
+});
+
 // Health
 app.get("/api/health", (req, res) => res.json({ ok: true, app: APP_NAME }));
 
