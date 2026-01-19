@@ -88,3 +88,12 @@ button { cursor: pointer; }
 
   .cell-input { font-size: 11px; }
 }
+
+/* ===== v1.3 Roster Board Print Paging ===== */
+.print-page { break-after: page; page-break-after: always; margin-bottom: 14px; }
+.print-page-title { font-weight: 700; font-size: 13px; margin-top: 8px; }
+
+@media print {
+  button, input[type="date"] { display: none !important; }
+  .print-page { break-after: page; page-break-after: always; }
+}

@@ -1,222 +1,401 @@
-import React, { useEffect, useState } from 'react'
-import { api, User } from './api'
+import React, { useEffect, useMemo, useState } from "react";
 
-type DaySheet = { date: string; board: Record<string, { cells: string[], notified: boolean[] }>; notes?: string; }
+type User = { id: number; name: string; role: string; active: boolean };
+type Cell = { cells: string[]; notified: boolean[] };
+type Board = Record<string, Cell>;
 
-function todayISO(){
+const RUN_HEADERS = ["AM 1st", "AM 2nd", "AM 3rd", "AM 4th", "PM 1st", "PM 2nd", "PM 3rd", "PM 4th"];
+
+function todayISO() {
   const d = new Date();
-  const pad = (n:number)=> String(n).padStart(2,'0');
-  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
 }
 
-export default function App(){
-  const [me, setMe] = useState<User|null>(null);
-  const [err, setErr] = useState('');
-  const [date, setDate] = useState(todayISO());
-  const [sheet, setSheet] = useState<DaySheet|null>(null);
+async function api<T>(path: string, opts?: RequestInit): Promise<T> {
+  const r = await fetch(path, { credentials: "include", headers: { "Content-Type": "application/json" }, ...opts });
+  if (!r.ok) throw new Error(await r.text());
+  return (await r.json()) as T;
+}
 
-  async function loadMe(){ try{ setMe(await api('/api/me')); }catch{ setMe(null); } }
-  useEffect(()=>{ loadMe(); }, []);
+function Login({ onAuthed }: { onAuthed: (u: User) => void }) {
+  const [name, setName] = useState("");
+  const [pin, setPin] = useState("");
+  const [err, setErr] = useState("");
 
-  async function loadSheet(d:string){
-    setErr('');
-    try{ setSheet(await api(`/api/daysheet?date=${encodeURIComponent(d)}`)); }
-    catch(e:any){ setErr(e.message); }
+  const submit = async () => {
+    setErr("");
+    try {
+      const u = await api<User>("/api/login", { method: "POST", body: JSON.stringify({ name, pin }) });
+      onAuthed(u);
+    } catch (e: any) {
+      setErr(e.message || "Login failed");
+    }
+  };
+
+  return (
+    <div style={{ maxWidth: 420, margin: "60px auto", padding: 16, border: "1px solid #ddd", borderRadius: 10 }}>
+      <h2 style={{ marginTop: 0 }}>Transportation Dispatcher</h2>
+      <div style={{ display: "grid", gap: 10 }}>
+        <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
+        <input placeholder="PIN" value={pin} onChange={(e) => setPin(e.target.value)} />
+        <button onClick={submit}>Login</button>
+        {err ? <div style={{ color: "crimson", fontSize: 13 }}>{err}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+function TopBar({
+  user,
+  date,
+  setDate,
+  onPrint,
+  onLogout,
+}: {
+  user: User;
+  date: string;
+  setDate: (d: string) => void;
+  onPrint: () => void;
+  onLogout: () => void;
+}) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+        <h2 style={{ margin: 0 }}>Transportation Dispatcher</h2>
+        <div style={{ fontSize: 12, opacity: 0.8 }}>
+          Logged in as <b>{user.name}</b> ({user.role})
+        </div>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        <button onClick={onPrint}>Print (Portrait)</button>
+        <button onClick={onLogout}>Logout</button>
+      </div>
+    </div>
+  );
+}
+
+function SectionRow({ label }: { label: string }) {
+  return (
+    <tr className="section-row">
+      <td colSpan={9}>{label}</td>
+    </tr>
+  );
+}
+
+function RosterBoard({
+  date,
+  board,
+  setBoard,
+  onGenerate,
+  onSave,
+}: {
+  date: string;
+  board: Board;
+  setBoard: (b: Board) => void;
+  onGenerate: () => void;
+  onSave: () => void;
+}) {
+  const routes = useMemo(() => Object.keys(board), [board]);
+
+  const driverRoutes = useMemo(() => routes.filter((r) => !r.endsWith("A")), [routes]);
+  const assistantRoutes = useMemo(() => routes.filter((r) => r.endsWith("A")), [routes]);
+
+  function updateCell(route: string, idx: number, val: string) {
+    const next: Board = { ...board, [route]: { ...board[route], cells: [...board[route].cells] } };
+    next[route].cells[idx] = val;
+    setBoard(next);
   }
-  useEffect(()=>{ if(me) loadSheet(date); }, [me, date]);
 
-  if(!me) return <Login onLoggedIn={loadMe} err={err} setErr={setErr}/>;
+  function toggleNotified(route: string, idx: number) {
+    const next: Board = { ...board, [route]: { ...board[route], notified: [...board[route].notified] } };
+    next[route].notified[idx] = !next[route].notified[idx];
+    setBoard(next);
+  }
 
-  return (
-    <div className="container">
-      <div className="topbar no-print">
-        <div>
-          <h2 style={{margin:'0 0 4px 0'}}>Transportation Dispatcher</h2>
-          <div className="small">Logged in as <b>{me.name}</b> <span className="badge">{me.role}</span></div>
-        </div>
-        <div className="row" style={{alignItems:'center'}}>
-          <input type="date" value={date} onChange={e=>setDate(e.target.value)} />
-          <button onClick={()=>window.print()}>Print (Portrait)</button>
-          <button onClick={async()=>{ await api('/api/logout', {method:'POST'}); setMe(null); }}>Logout</button>
-        </div>
-      </div>
+  const renderRows = (rows: string[], includeSections: boolean) => {
+    const out: JSX.Element[] = [];
+    let insertedESE = false;
 
-      {err && <div className="card" style={{border:'1px solid #f2b8b5', background:'#fff5f5', marginBottom:12}}>{err}</div>}
+    if (includeSections) out.push(<SectionRow key="__basic__" label="BASIC ROUTES (Z500–Z521)" />);
 
-      {sheet && <DaySheetBoard sheet={sheet} onSave={async(s)=>{
-        await api('/api/daysheet', {method:'POST', body: JSON.stringify(s)});
-        await loadSheet(date);
-      }}/>}
+    for (const route of rows) {
+      if (includeSections) {
+        if (!insertedESE && route.startsWith("Z560")) {
+          out.push(<SectionRow key="__ese__" label="ESE ROUTES (Z560–Z588)" />);
+          insertedESE = true;
+        }
+      }
 
-      {me.role === 'admin' && <AdminPanel />}
-    </div>
-  );
-}
+      const row = board[route];
+      out.push(
+        <tr key={route}>
+          <td className="route-col">{route}</td>
+          {row.cells.map((v, i) => (
+            <td key={i} className={"run-col " + (i < 4 ? "am" : "pm")}>
+              <input className="cell-input" value={v} onChange={(e) => updateCell(route, i, e.target.value)} />
+              <div className="cell-footer">
+                <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <input type="checkbox" checked={!!row.notified[i]} onChange={() => toggleNotified(route, i)} />
+                  <span style={{ fontSize: 11, opacity: 0.85 }}>Notified</span>
+                </label>
+                {row.notified[i] ? <span title="Notified">✔</span> : null}
+              </div>
+            </td>
+          ))}
+        </tr>
+      );
+    }
+    return out;
+  };
 
-function Login({onLoggedIn, err, setErr}:{onLoggedIn: ()=>void, err:string, setErr:(s:string)=>void}){
-  const [name, setName] = useState('Ray');
-  const [pin, setPin] = useState('');
-  return (
-    <div className="container">
-      <div className="card" style={{maxWidth:520, margin:'80px auto'}}>
-        <h2 style={{marginTop:0}}>Transportation Dispatcher</h2>
-        <div className="small">Sign in with your name + PIN</div>
-        <div className="row" style={{marginTop:12}}>
-          <input placeholder="Name" value={name} onChange={e=>setName(e.target.value)} />
-          <input placeholder="PIN" value={pin} onChange={e=>setPin(e.target.value)} />
-          <button onClick={async()=>{
-            setErr('');
-            try{ await api('/api/login', {method:'POST', body: JSON.stringify({name, pin})}); onLoggedIn(); }
-            catch(e:any){ setErr(e.message); }
-          }}>Login</button>
-        </div>
-        {err && <div style={{marginTop:12, color:'#b42318'}}>{err}</div>}
-      </div>
-    </div>
-  );
-}
+  const chunk = (arr: string[], n: number) => {
+    const chunks: string[][] = [];
+    for (let i = 0; i < arr.length; i += n) chunks.push(arr.slice(i, i + n));
+    return chunks;
+  };
 
-function DaySheetBoard({sheet, onSave}:{sheet:DaySheet, onSave:(s:DaySheet)=>Promise<void>}){
-  const [local, setLocal] = useState<DaySheet>(sheet);
-  useEffect(()=>setLocal(sheet), [sheet.date]);
+  const driverChunks = chunk(driverRoutes, 28);
+  const assistantChunks = chunk(assistantRoutes, 28);
 
   return (
-    <div className="card">
-      <div className="print-only" style={{textAlign:'center', marginBottom:8}}>
-        <h3 style={{margin:0}}>Transportation SOUTHEAST – Day Sheet</h3>
-        <div className="small">{local.date}</div>
+    <div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+        <button onClick={onGenerate}>Generate Coverage</button>
+        <button onClick={onSave}>Save</button>
       </div>
 
-      <div className="topbar no-print">
-        <div><b>Day Sheet Board</b> <span className="badge">{local.date}</span></div>
-        <div className="row">
-          <button onClick={async()=> setLocal(await api('/api/generate?date='+encodeURIComponent(local.date)))}>Generate Coverage</button>
-          <button onClick={()=>onSave(local)}>Save</button>
-        </div>
+      <h3 style={{ margin: "10px 0 6px" }}>Roster Board (Inventory)</h3>
+      <div style={{ fontSize: 12, opacity: 0.8, marginBottom: 10 }}>
+        Lists all routes with default assignments (OPEN where unassigned). Print splits into Drivers then Assistants, 28 rows/page.
       </div>
 
       <div className="daysheet-wrap">
-        <table className="daysheet-grid" style={{marginTop:8}}
-        >
-          <thead>
-            <tr>
-              <th className="route-col">Route</th>
-              <th className="am run-col">AM 1st</th><th className="am run-col">AM 2nd</th><th className="am run-col">AM 3rd</th><th className="am run-col">AM 4th</th>
-              <th className="pm run-col">PM 1st</th><th className="pm run-col">PM 2nd</th><th className="pm run-col">PM 3rd</th><th className="pm run-col">PM 4th</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(() => {
-              const entries = Object.entries(local.board || {});
-              const rows: any[] = [];
-              let insertedBasic = false;
-              let insertedESE = false;
-
-              const pushSection = (label: string) => rows.push(
-                <tr className="section-row" key={"section-"+label}>
-                  <td colSpan={9}>{label}</td>
+        {driverChunks.map((rows, idx) => (
+          <div key={"drv_" + idx} className="print-page">
+            <div className="print-page-title">Drivers – Page {idx + 1}</div>
+            <table className="daysheet-grid" style={{ marginTop: 6 }}>
+              <thead>
+                <tr>
+                  <th className="route-col">Route</th>
+                  {RUN_HEADERS.map((h, i) => (
+                    <th key={i} className={(i < 4 ? "am " : "pm ") + "run-col"}>
+                      {h}
+                    </th>
+                  ))}
                 </tr>
-              );
+              </thead>
+              <tbody>{renderRows(rows, idx === 0)}</tbody>
+            </table>
+          </div>
+        ))}
 
-              for (const [route, row] of entries) {
-                if (!insertedBasic) {
-                  pushSection('BASIC ROUTES (Z500–Z521)');
-                  insertedBasic = true;
-                }
-                if (!insertedESE && route.startsWith('Z56')) {
-                  pushSection('ESE ROUTES (Z560–Z588)');
-                  insertedESE = true;
-                }
-
-                rows.push(
-                  <tr key={route}>
-                    <td className="route-col"><b>{route}</b></td>
-                    {Array.from({length:8}).map((_,i)=> (
-                      <td key={i} className="run-col">
-                        <input
-                          className="cell-input"
-                          value={(row?.cells?.[i] || '')}
-                          onChange={(e)=>{
-                            const v = e.target.value;
-                            setLocal(prev=>{
-                              const next:DaySheet = JSON.parse(JSON.stringify(prev));
-                              next.board[route].cells[i] = v;
-                              return next;
-                            })
-                          }}
-                        />
-                        <div className="cell-footer">
-                          ✔
-                          <input
-                            type="checkbox"
-                            checked={!!row?.notified?.[i]}
-                            onChange={(e)=>{
-                              const checked = e.target.checked;
-                              setLocal(prev=>{
-                                const next:DaySheet = JSON.parse(JSON.stringify(prev));
-                                next.board[route].notified[i] = checked;
-                                return next;
-                              })
-                            }}
-                          />
-                        </div>
-                      </td>
-                    ))}
-                  </tr>
-                );
-              }
-
-              return rows;
-            })()}
-          </tbody>
-        </table>
+        {assistantChunks.map((rows, idx) => (
+          <div key={"asst_" + idx} className="print-page">
+            <div className="print-page-title">Assistants – Page {idx + 1}</div>
+            <table className="daysheet-grid" style={{ marginTop: 6 }}>
+              <thead>
+                <tr>
+                  <th className="route-col">Route</th>
+                  {RUN_HEADERS.map((h, i) => (
+                    <th key={i} className={(i < 4 ? "am " : "pm ") + "run-col"}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>{renderRows(rows, idx === 0)}</tbody>
+            </table>
+          </div>
+        ))}
       </div>
 
-      <div style={{marginTop:10}} className="small">AM is highlighted yellow; PM is highlighted orange; prints in portrait.</div>
+      <div style={{ fontSize: 12, marginTop: 10 }}>
+        <div>AM is highlighted yellow; PM is highlighted orange; prints in portrait.</div>
+      </div>
     </div>
   );
 }
 
-function AdminPanel(){
-  const [users, setUsers] = useState<User[]>([]);
-  const [err, setErr] = useState('');
-  const [name, setName] = useState('');
-  const [pin, setPin] = useState('');
-  const [role, setRole] = useState<'dispatcher'|'supervisor'|'admin'>('dispatcher');
+function DaySheetTab() {
+  return (
+    <div>
+      <h3 style={{ margin: "10px 0 6px" }}>Day Sheet (Official Template)</h3>
+      <div style={{ fontSize: 13, lineHeight: 1.4, maxWidth: 980 }}>
+        Coming next: a Day Sheet view that matches your scanned template exactly (AM stacked above PM; Route, Employee, RTN,
+        Leave Code, 1st–4th, Add&apos;l 5–8; plus footer blocks on a second print page).
+      </div>
+      <div style={{ marginTop: 12, padding: 12, border: "1px dashed #bbb", borderRadius: 10 }}>
+        <b>Temporary RTN dropdown options:</b> SIK, FMLA, WC, PRS
+      </div>
+    </div>
+  );
+}
 
-  async function load(){ try{ setUsers(await api('/api/users')); }catch(e:any){ setErr(e.message); } }
-  useEffect(()=>{ load(); }, []);
+function CalloutsTab() {
+  return (
+    <div>
+      <h3 style={{ margin: "10px 0 6px" }}>Call-Outs + Coverage Options</h3>
+      <div style={{ fontSize: 13, lineHeight: 1.4, maxWidth: 980 }}>
+        Coming next: enter driver/assistant call-outs (by AM/PM segment and run), generate 1–3 coverage options using your priority
+        rules (relief first, supervisors next, cross-depot as last resort). Choosing an option will populate the Day Sheet.
+      </div>
+    </div>
+  );
+}
+
+function AdminPanel() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [name, setName] = useState("");
+  const [pin, setPin] = useState("");
+  const [role, setRole] = useState("dispatcher");
+  const [err, setErr] = useState("");
+
+  const refresh = async () => {
+    try {
+      setUsers(await api<User[]>("/api/users"));
+    } catch (e: any) {
+      setErr(e.message || "Failed to load users");
+    }
+  };
+
+  useEffect(() => {
+    refresh();
+  }, []);
+
+  const addOrUpdate = async () => {
+    setErr("");
+    try {
+      await api<{ ok: boolean }>("/api/users", { method: "POST", body: JSON.stringify({ name, pin, role }) });
+      setName("");
+      setPin("");
+      await refresh();
+    } catch (e: any) {
+      setErr(e.message || "Failed");
+    }
+  };
+
+  const toggle = async (id: number) => {
+    await api<{ ok: boolean }>(`/api/users/${id}/toggle`, { method: "POST" });
+    await refresh();
+  };
 
   return (
-    <div className="card" style={{marginTop:12}}>
-      <h3 style={{marginTop:0}}>Admin – Users</h3>
-      {err && <div style={{color:'#b42318'}}>{err}</div>}
-      <div className="row">
-        <input placeholder="Name" value={name} onChange={e=>setName(e.target.value)} />
-        <input placeholder="PIN" value={pin} onChange={e=>setPin(e.target.value)} />
-        <select value={role} onChange={e=>setRole(e.target.value as any)}>
-          <option value="dispatcher">dispatcher</option>
-          <option value="supervisor">supervisor</option>
+    <div style={{ marginTop: 20 }}>
+      <h3>Admin – Users</h3>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 }}>
+        <b>Add/Update User</b>
+        <input placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} />
+        <input placeholder="PIN" value={pin} onChange={(e) => setPin(e.target.value)} />
+        <select value={role} onChange={(e) => setRole(e.target.value)}>
           <option value="admin">admin</option>
+          <option value="dispatcher">dispatcher</option>
         </select>
-        <button onClick={async()=>{
-          setErr('');
-          try{ await api('/api/users', {method:'POST', body: JSON.stringify({name, pin, role})}); setName(''); setPin(''); setRole('dispatcher'); await load(); }
-          catch(e:any){ setErr(e.message); }
-        }}>Add/Update User</button>
+        <button onClick={addOrUpdate}>Add/Update User</button>
       </div>
+      {err ? <div style={{ color: "crimson", fontSize: 13 }}>{err}</div> : null}
 
-      <table className="grid" style={{marginTop:10}}>
-        <thead><tr><th>Name</th><th>Role</th><th>Active</th><th>Actions</th></tr></thead>
+      <table className="daysheet-grid">
+        <thead>
+          <tr>
+            <th className="route-col">Name</th>
+            <th className="run-col">Role</th>
+            <th className="run-col">Active</th>
+            <th className="run-col">Actions</th>
+          </tr>
+        </thead>
         <tbody>
-          {users.map(u=>(
+          {users.map((u) => (
             <tr key={u.id}>
-              <td>{u.name}</td><td>{u.role}</td><td>{String(u.active)}</td>
-              <td><button onClick={async()=>{ await api('/api/users/'+u.id+'/toggle', {method:'POST'}); await load(); }}>Toggle Active</button></td>
+              <td className="route-col">{u.name}</td>
+              <td className="run-col">{u.role}</td>
+              <td className="run-col">{String(u.active)}</td>
+              <td className="run-col">
+                <button onClick={() => toggle(u.id)}>Toggle Active</button>
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
-  )
+  );
+}
+
+export default function App() {
+  const [user, setUser] = useState<User | null>(null);
+  const [date, setDate] = useState(todayISO());
+  const [board, setBoard] = useState<Board>({});
+  const [activeTab, setActiveTab] = useState<"roster" | "daysheet" | "callouts">("roster");
+  const [err, setErr] = useState("");
+
+  const load = async () => {
+    setErr("");
+    try {
+      const me = await api<User>("/api/me");
+      setUser(me);
+      const ds = await api<{ date: string; board: Board }>(`/api/daysheet?date=${date}`);
+      setBoard(ds.board || {});
+    } catch (e: any) {
+      if ((e.message || "").includes("Not signed")) return;
+      setErr(e.message || "Failed to load");
+    }
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date]);
+
+  const onAuthed = async (u: User) => {
+    setUser(u);
+    await load();
+  };
+
+  const logout = async () => {
+    await api("/api/logout", { method: "POST" });
+    setUser(null);
+  };
+
+  const generate = async () => {
+    const r = await api<{ date: string; board: Board }>(`/api/generate?date=${date}`);
+    setBoard(r.board);
+  };
+
+  const save = async () => {
+    await api("/api/daysheet", { method: "POST", body: JSON.stringify({ date, board }) });
+  };
+
+  const print = () => window.print();
+
+  if (!user) return <Login onAuthed={onAuthed} />;
+
+  return (
+    <div style={{ padding: 14 }}>
+      <TopBar user={user} date={date} setDate={setDate} onPrint={print} onLogout={logout} />
+      {err ? <div style={{ color: "crimson", marginBottom: 10 }}>{err}</div> : null}
+
+      <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+        <button onClick={() => setActiveTab("roster")} disabled={activeTab === "roster"}>
+          Roster Board
+        </button>
+        <button onClick={() => setActiveTab("daysheet")} disabled={activeTab === "daysheet"}>
+          Day Sheet
+        </button>
+        <button onClick={() => setActiveTab("callouts")} disabled={activeTab === "callouts"}>
+          Call-Outs
+        </button>
+      </div>
+
+      {activeTab === "roster" ? (
+        <RosterBoard date={date} board={board} setBoard={setBoard} onGenerate={generate} onSave={save} />
+      ) : null}
+      {activeTab === "daysheet" ? <DaySheetTab /> : null}
+      {activeTab === "callouts" ? <CalloutsTab /> : null}
+
+      {user.role === "admin" ? <AdminPanel /> : null}
+    </div>
+  );
 }

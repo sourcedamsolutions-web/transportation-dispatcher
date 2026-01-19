@@ -26,3 +26,8 @@ PIN: 619511
 
 ## v1.2.1
 - Layout lock (v1.2) + server stability fix (no single-quote SQL bug)
+
+
+## v1.3.0
+- Roster Board: section headers, cleaned Notified UI, print paging (Drivers/Assistants, 28 rows/page)
+- Added scaffold tabs: Day Sheet + Call-Outs for next iteration
