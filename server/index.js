@@ -199,6 +199,75 @@ app.get("/api/routes", authRequired, async (req, res) => {
   res.json(r.rows);
 });
 
+
+// Ops Day Sheet (official template)
+function makeOpsCells(n = 8) {
+  return Array.from({ length: n }, () => ({ value: "", notified: false }));
+}
+function makeDefaultOpsRow(routeCode = "") {
+  return {
+    route: routeCode,
+    employee: "",
+    rtn: "",
+    leaveCode: "",
+    am: makeOpsCells(8),
+    pm: makeOpsCells(8),
+  };
+}
+function defaultBlocks() {
+  return { other: "", reliefDrivers: "", officeStaff: "", busService: "", outOfService: "" };
+}
+async function buildDefaultOpsSheet(date) {
+  const routes = await pool.query(
+    "select code, default_driver, default_assistant from routes " +
+      "order by cast(substring(code from 2 for 3) as int), case when right(code,1)='A' then 1 else 0 end"
+  );
+  const driverOpen = routes.rows
+    .filter((r) => !String(r.code).endsWith("A"))
+    .filter((r) => String(r.default_driver || "").toUpperCase() === "OPEN")
+    .map((r) => makeDefaultOpsRow(r.code));
+
+  const assistantOpen = routes.rows
+    .filter((r) => String(r.code).endsWith("A"))
+    .filter((r) => String(r.default_assistant || "").toUpperCase() === "OPEN")
+    .map((r) => makeDefaultOpsRow(r.code));
+
+  return { date, drivers: driverOpen, assistants: assistantOpen, blocks: defaultBlocks() };
+}
+
+// Get / Save ops day sheet inside day_sheets.data.opsDaySheet
+app.get("/api/ops-daysheet", authRequired, async (req, res) => {
+  const date = req.query.date;
+  if (!date) return res.status(400).send("date required");
+
+  const r = await pool.query("select data from day_sheets where day=$1", [date]);
+  if (r.rowCount === 0) {
+    return res.json(await buildDefaultOpsSheet(date));
+  }
+  const data = r.rows[0].data || {};
+  if (data.opsDaySheet) return res.json(data.opsDaySheet);
+
+  // If legacy record exists but no opsDaySheet, create defaults and return
+  const ds = await buildDefaultOpsSheet(date);
+  return res.json(ds);
+});
+
+app.post("/api/ops-daysheet", authRequired, async (req, res) => {
+  const body = req.body || {};
+  if (!body.date) return res.status(400).send("date required");
+
+  const r = await pool.query("select data from day_sheets where day=$1", [body.date]);
+  const existing = r.rowCount ? r.rows[0].data || {} : {};
+  const merged = { ...existing, opsDaySheet: body };
+
+  await pool.query(
+    `insert into day_sheets (day, data) values ($1, $2::jsonb)
+     on conflict (day) do update set data=$2::jsonb, updated_at=now()`,
+    [body.date, JSON.stringify(merged)]
+  );
+  res.json({ ok: true });
+});
+
 // Day sheets
 app.get("/api/daysheet", authRequired, async (req, res) => {
   const date = req.query.date;

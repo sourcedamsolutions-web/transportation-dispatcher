@@ -97,3 +97,39 @@ button { cursor: pointer; }
   button, input[type="date"] { display: none !important; }
   .print-page { break-after: page; page-break-after: always; }
 }
+
+
+/* ===== Ops Day Sheet (official) ===== */
+.ops-grid { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.ops-grid th, .ops-grid td { border: 1px solid #222; padding: 4px; vertical-align: top; }
+.ops-route { width: 90px; font-weight: 700; }
+.ops-emp { width: 160px; }
+.ops-rtn { width: 70px; }
+.ops-leave { width: 90px; }
+.ops-run { width: 86px; position: relative; }
+.ops-cell { width: 100%; box-sizing: border-box; border: none; outline: none; background: transparent; font-size: 12px; padding-right: 22px; }
+
+.ops-notify { position: absolute; right: 4px; bottom: 4px; }
+.ops-notify input { transform: scale(0.95); }
+
+/* Default + notified colors per Ray's spec */
+.am-default { background: #ffffff; }
+.am-notified { background: #fff176; } /* yellow */
+.pm-default { background: #cfe8ff; } /* blue */
+.pm-notified { background: #b9f6ca; } /* green */
+
+/* Print */
+@media print {
+  .print-page { break-after: page; }
+  .ops-grid th, .ops-grid td { padding: 3px; }
+  .ops-emp { width: 140px; }
+  .ops-run { width: 78px; }
+  .ops-cell { font-size: 11px; }
+  textarea { font-size: 11px; }
+}
+
+/* Blocks page */
+.blocks-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+.block-title { font-weight: 700; margin-bottom: 4px; }
+.blocks-grid textarea { width: 100%; height: 110px; resize: vertical; }
+

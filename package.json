@@ -8,5 +8,6 @@
   "scripts": {
     "build": "npm run build -w client",
     "start": "node server/index.js"
-  }
+  },
+  "version": "1.4.0"
 }

@@ -220,22 +220,302 @@ function RosterBoard({
   );
 }
 
-function DaySheetTab() {
+function DaySheetTab({ date }: { date: string }) {
+  type OpsCell = { value: string; notified: boolean };
+  type OpsRow = {
+    route: string;
+    employee: string;
+    rtn: string;
+    leaveCode: string;
+    am: OpsCell[]; // 8 cells (1-4 + Add'l 5-8)
+    pm: OpsCell[]; // 8 cells (1-4 + Add'l 5-8)
+  };
+  type OpsBlocks = {
+    other: string;
+    reliefDrivers: string;
+    officeStaff: string;
+    busService: string;
+    outOfService: string;
+  };
+  type OpsSheet = { date: string; drivers: OpsRow[]; assistants: OpsRow[]; blocks: OpsBlocks };
+
+  const [sheet, setSheet] = useState<OpsSheet | null>(null);
+  const [routes, setRoutes] = useState<any[]>([]);
+  const [err, setErr] = useState("");
+
+  const rtnOptions = ["", "SIK", "FMLA", "WC", "PRS"];
+  const leaveCodeOptions = [""]; // you will provide the full list later
+
+  const employeeOptions = useMemo(() => {
+    const names = new Set<string>();
+    for (const r of routes) {
+      if (r.default_driver) names.add(String(r.default_driver).trim());
+      if (r.default_assistant) names.add(String(r.default_assistant).trim());
+    }
+    names.add("OPEN");
+    // remove blanks
+    const arr = Array.from(names).filter((x) => x && x !== "null" && x !== "undefined");
+    arr.sort((a, b) => a.localeCompare(b));
+    return arr;
+  }, [routes]);
+
+  const routeOptions = useMemo(() => {
+    const arr = routes.map((r) => r.code);
+    return arr;
+  }, [routes]);
+
+  const load = async () => {
+    setErr("");
+    try {
+      const rts = await api<any[]>("/api/routes");
+      setRoutes(rts || []);
+      const ds = await api<OpsSheet>(`/api/ops-daysheet?date=${date}`);
+      setSheet(ds);
+    } catch (e: any) {
+      setErr(e.message || "Failed to load Day Sheet");
+    }
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date]);
+
+  const save = async () => {
+    if (!sheet) return;
+    setErr("");
+    try {
+      await api("/api/ops-daysheet", { method: "POST", body: JSON.stringify(sheet) });
+    } catch (e: any) {
+      setErr(e.message || "Failed to save");
+    }
+  };
+
+  const makeCells = (n = 8): { value: string; notified: boolean }[] =>
+    Array.from({ length: n }, () => ({ value: "", notified: false }));
+
+  const addRow = (mode: "drivers" | "assistants") => {
+    if (!sheet) return;
+    const next: OpsSheet = JSON.parse(JSON.stringify(sheet));
+    next[mode].push({ route: "", employee: "", rtn: "", leaveCode: "", am: makeCells(), pm: makeCells() });
+    setSheet(next);
+  };
+
+  const updateRowField = (mode: "drivers" | "assistants", idx: number, field: keyof OpsRow, val: string) => {
+    if (!sheet) return;
+    const next: OpsSheet = JSON.parse(JSON.stringify(sheet));
+    // @ts-ignore
+    next[mode][idx][field] = val;
+    setSheet(next);
+  };
+
+  const updateCell = (
+    mode: "drivers" | "assistants",
+    idx: number,
+    part: "am" | "pm",
+    cidx: number,
+    val: string
+  ) => {
+    if (!sheet) return;
+    const next: OpsSheet = JSON.parse(JSON.stringify(sheet));
+    next[mode][idx][part][cidx].value = val;
+    setSheet(next);
+  };
+
+  const toggleNotified = (mode: "drivers" | "assistants", idx: number, part: "am" | "pm", cidx: number) => {
+    if (!sheet) return;
+    const next: OpsSheet = JSON.parse(JSON.stringify(sheet));
+    next[mode][idx][part][cidx].notified = !next[mode][idx][part][cidx].notified;
+    setSheet(next);
+  };
+
+  const renderGrid = (title: string, mode: "drivers" | "assistants") => {
+    if (!sheet) return null;
+    const rows = sheet[mode];
+
+    const headerCols = ["1st", "2nd", "3rd", "4th", "Add'l 5", "Add'l 6", "Add'l 7", "Add'l 8"];
+
+    return (
+      <div className="print-page">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10 }}>
+          <div>
+            <div style={{ fontWeight: 800, fontSize: 14 }}>{title}</div>
+            <div style={{ fontSize: 12, opacity: 0.85 }}>Transportation SOUTHEAST — {date}</div>
+          </div>
+          <button onClick={() => addRow(mode)}>Add Row</button>
+        </div>
+
+        <table className="ops-grid" style={{ marginTop: 8 }}>
+          <thead>
+            <tr>
+              <th className="ops-route">Route</th>
+              <th className="ops-emp">Employee</th>
+              <th className="ops-rtn">RTN</th>
+              <th className="ops-leave">Leave Code</th>
+              {headerCols.map((h) => (
+                <th key={h} className="ops-run">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, i) => (
+              <React.Fragment key={i}>
+                {/* AM row */}
+                <tr className="ops-am-row">
+                  <td className="ops-route">
+                    <input list={"routeList"} value={row.route} onChange={(e) => updateRowField(mode, i, "route", e.target.value)} />
+                  </td>
+                  <td className="ops-emp">
+                    <input list={"empList"} value={row.employee} onChange={(e) => updateRowField(mode, i, "employee", e.target.value)} />
+                  </td>
+                  <td className="ops-rtn">
+                    <select value={row.rtn} onChange={(e) => updateRowField(mode, i, "rtn", e.target.value)}>
+                      {rtnOptions.map((o) => (
+                        <option key={o} value={o}>
+                          {o}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="ops-leave">
+                    <input list={"leaveList"} value={row.leaveCode} onChange={(e) => updateRowField(mode, i, "leaveCode", e.target.value)} />
+                  </td>
+                  {row.am.map((c, cidx) => (
+                    <td
+                      key={"am" + cidx}
+                      className={"ops-run " + (c.notified ? "am-notified" : "am-default")}
+                    >
+                      <input
+                        list={"empList"}
+                        className="ops-cell"
+                        value={c.value}
+                        onChange={(e) => updateCell(mode, i, "am", cidx, e.target.value)}
+                      />
+                      <label className="ops-notify">
+                        <input type="checkbox" checked={!!c.notified} onChange={() => toggleNotified(mode, i, "am", cidx)} />
+                      </label>
+                    </td>
+                  ))}
+                </tr>
+
+                {/* PM row */}
+                <tr className="ops-pm-row">
+                  <td className="ops-route" />
+                  <td className="ops-emp" />
+                  <td className="ops-rtn" />
+                  <td className="ops-leave" />
+                  {row.pm.map((c, cidx) => (
+                    <td
+                      key={"pm" + cidx}
+                      className={"ops-run " + (c.notified ? "pm-notified" : "pm-default")}
+                    >
+                      <input
+                        list={"empList"}
+                        className="ops-cell"
+                        value={c.value}
+                        onChange={(e) => updateCell(mode, i, "pm", cidx, e.target.value)}
+                      />
+                      <label className="ops-notify">
+                        <input type="checkbox" checked={!!c.notified} onChange={() => toggleNotified(mode, i, "pm", cidx)} />
+                      </label>
+                    </td>
+                  ))}
+                </tr>
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+
+        <datalist id="routeList">
+          {routeOptions.map((r) => (
+            <option key={r} value={r} />
+          ))}
+        </datalist>
+        <datalist id="empList">
+          {employeeOptions.map((n) => (
+            <option key={n} value={n} />
+          ))}
+        </datalist>
+        <datalist id="leaveList">
+          {leaveCodeOptions.map((c) => (
+            <option key={c} value={c} />
+          ))}
+        </datalist>
+      </div>
+    );
+  };
+
+  const renderBlocks = () => {
+    if (!sheet) return null;
+    return (
+      <div className="print-page">
+        <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 6 }}>Additional Blocks (Print Page 2)</div>
+        <div className="blocks-grid">
+          <div>
+            <div className="block-title">OTHER</div>
+            <textarea value={sheet.blocks.other} onChange={(e) => setSheet({ ...sheet, blocks: { ...sheet.blocks, other: e.target.value } })} />
+          </div>
+          <div>
+            <div className="block-title">RELIEF DRIVERS</div>
+            <textarea value={sheet.blocks.reliefDrivers} onChange={(e) => setSheet({ ...sheet, blocks: { ...sheet.blocks, reliefDrivers: e.target.value } })} />
+          </div>
+          <div>
+            <div className="block-title">OFFICE STAFF</div>
+            <textarea value={sheet.blocks.officeStaff} onChange={(e) => setSheet({ ...sheet, blocks: { ...sheet.blocks, officeStaff: e.target.value } })} />
+          </div>
+          <div>
+            <div className="block-title">Bus Service</div>
+            <textarea value={sheet.blocks.busService} onChange={(e) => setSheet({ ...sheet, blocks: { ...sheet.blocks, busService: e.target.value } })} />
+          </div>
+          <div>
+            <div className="block-title">Out of Service Buses</div>
+            <textarea value={sheet.blocks.outOfService} onChange={(e) => setSheet({ ...sheet, blocks: { ...sheet.blocks, outOfService: e.target.value } })} />
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div>
-      <h3 style={{ margin: "10px 0 6px" }}>Day Sheet (Official Template)</h3>
-      <div style={{ fontSize: 13, lineHeight: 1.4, maxWidth: 980 }}>
-        Coming next: a Day Sheet view that matches your scanned template exactly (AM stacked above PM; Route, Employee, RTN,
-        Leave Code, 1st–4th, Add&apos;l 5–8; plus footer blocks on a second print page).
+      <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+        <button onClick={save}>Save Day Sheet</button>
+        <button onClick={load}>Reload</button>
       </div>
-      <div style={{ marginTop: 12, padding: 12, border: "1px dashed #bbb", borderRadius: 10 }}>
-        <b>Temporary RTN dropdown options:</b> SIK, FMLA, WC, PRS
+      {err ? <div style={{ color: "crimson", marginBottom: 10 }}>{err}</div> : null}
+      {!sheet ? <div>Loading…</div> : null}
+
+      {sheet ? (
+        <div className="daysheet-wrap">
+          {renderGrid("DAY SHEET — DRIVERS", "drivers")}
+          {renderBlocks()}
+          {renderGrid("DAY SHEET — ASSISTANTS (A Routes)", "assistants")}
+          {renderBlocks()}
+        </div>
+      ) : null}
+
+      <div style={{ fontSize: 12, opacity: 0.85, marginTop: 10 }}>
+        AM cells default white → Yellow when notified. PM cells default blue → Green when notified.
       </div>
     </div>
   );
 }
 
 function CalloutsTab() {
+  return (
+    <div>
+      <h3 style={{ margin: "10px 0 6px" }}>Call-Outs + Coverage Options</h3>
+      <div style={{ fontSize: 13, lineHeight: 1.4, maxWidth: 980 }}>
+        Coming next: enter driver/assistant call-outs (by AM/PM segment and run), generate 1–3 coverage options using your priority
+        rules (relief first, supervisors next, cross-depot as last resort). Choosing an option will populate the Day Sheet.
+      </div>
+    </div>
+  );
+}
+
+ {
   return (
     <div>
       <h3 style={{ margin: "10px 0 6px" }}>Call-Outs + Coverage Options</h3>
@@ -392,7 +672,7 @@ export default function App() {
       {activeTab === "roster" ? (
         <RosterBoard date={date} board={board} setBoard={setBoard} onGenerate={generate} onSave={save} />
       ) : null}
-      {activeTab === "daysheet" ? <DaySheetTab /> : null}
+      {activeTab === "daysheet" ? <DaySheetTab date={date} /> : null}
       {activeTab === "callouts" ? <CalloutsTab /> : null}
 
       {user.role === "admin" ? <AdminPanel /> : null}
