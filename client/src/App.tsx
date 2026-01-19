@@ -1,11 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { api, User } from './api'
 
-type DaySheet = {
-  date: string;
-  notes?: string;
-  board: Record<string, { cells: string[], notified: boolean[] }>;
-}
+type DaySheet = { date: string; board: Record<string, { cells: string[], notified: boolean[] }>; notes?: string; }
 
 function todayISO(){
   const d = new Date();
@@ -15,36 +11,21 @@ function todayISO(){
 
 export default function App(){
   const [me, setMe] = useState<User|null>(null);
-  const [err, setErr] = useState<string>('');
-  const [date, setDate] = useState<string>(todayISO());
+  const [err, setErr] = useState('');
+  const [date, setDate] = useState(todayISO());
   const [sheet, setSheet] = useState<DaySheet|null>(null);
 
-  async function loadMe(){
-    try{
-      const u = await api('/api/me');
-      setMe(u);
-    }catch{
-      setMe(null);
-    }
-  }
-
+  async function loadMe(){ try{ setMe(await api('/api/me')); }catch{ setMe(null); } }
   useEffect(()=>{ loadMe(); }, []);
 
   async function loadSheet(d:string){
     setErr('');
-    try{
-      const s = await api(`/api/daysheet?date=${encodeURIComponent(d)}`);
-      setSheet(s);
-    }catch(e:any){
-      setErr(e.message);
-    }
+    try{ setSheet(await api(`/api/daysheet?date=${encodeURIComponent(d)}`)); }
+    catch(e:any){ setErr(e.message); }
   }
-
   useEffect(()=>{ if(me) loadSheet(date); }, [me, date]);
 
-  if(!me){
-    return <Login onLoggedIn={loadMe} err={err} setErr={setErr}/>;
-  }
+  if(!me) return <Login onLoggedIn={loadMe} err={err} setErr={setErr}/>;
 
   return (
     <div className="container">
@@ -85,18 +66,11 @@ function Login({onLoggedIn, err, setErr}:{onLoggedIn: ()=>void, err:string, setE
           <input placeholder="PIN" value={pin} onChange={e=>setPin(e.target.value)} />
           <button onClick={async()=>{
             setErr('');
-            try{
-              await api('/api/login', {method:'POST', body: JSON.stringify({name, pin})});
-              onLoggedIn();
-            }catch(e:any){
-              setErr(e.message);
-            }
+            try{ await api('/api/login', {method:'POST', body: JSON.stringify({name, pin})}); onLoggedIn(); }
+            catch(e:any){ setErr(e.message); }
           }}>Login</button>
         </div>
         {err && <div style={{marginTop:12, color:'#b42318'}}>{err}</div>}
-        <div className="small" style={{marginTop:14}}>
-          First run tip: set ADMIN_NAME and ADMIN_PIN in Render Environment.
-        </div>
       </div>
     </div>
   );
@@ -116,10 +90,7 @@ function DaySheetBoard({sheet, onSave}:{sheet:DaySheet, onSave:(s:DaySheet)=>Pro
       <div className="topbar no-print">
         <div><b>Day Sheet Board</b> <span className="badge">{local.date}</span></div>
         <div className="row">
-          <button onClick={async()=>{
-            const out = await api('/api/generate?date='+encodeURIComponent(local.date));
-            setLocal(out);
-          }}>Generate Coverage</button>
+          <button onClick={async()=> setLocal(await api('/api/generate?date='+encodeURIComponent(local.date)))}>Generate Coverage</button>
           <button onClick={()=>onSave(local)}>Save</button>
         </div>
       </div>
@@ -128,14 +99,8 @@ function DaySheetBoard({sheet, onSave}:{sheet:DaySheet, onSave:(s:DaySheet)=>Pro
         <thead>
           <tr>
             <th style={{width:'140px'}}>Route</th>
-            <th className="am">AM 1st</th>
-            <th className="am">AM 2nd</th>
-            <th className="am">AM 3rd</th>
-            <th className="am">AM 4th</th>
-            <th className="pm">PM 1st</th>
-            <th className="pm">PM 2nd</th>
-            <th className="pm">PM 3rd</th>
-            <th className="pm">PM 4th</th>
+            <th className="am">AM 1st</th><th className="am">AM 2nd</th><th className="am">AM 3rd</th><th className="am">AM 4th</th>
+            <th className="pm">PM 1st</th><th className="pm">PM 2nd</th><th className="pm">PM 3rd</th><th className="pm">PM 4th</th>
           </tr>
         </thead>
         <tbody>
@@ -144,26 +109,18 @@ function DaySheetBoard({sheet, onSave}:{sheet:DaySheet, onSave:(s:DaySheet)=>Pro
               <td><b>{route}</b></td>
               {Array.from({length:8}).map((_,i)=> (
                 <td key={i}>
-                  <input
-                    style={{width:'100%'}}
-                    value={(row?.cells?.[i] || '')}
-                    onChange={(e)=>{
-                      const v = e.target.value;
-                      setLocal(prev=>{
-                        const next:DaySheet = JSON.parse(JSON.stringify(prev));
-                        next.board = next.board || {};
-                        next.board[route] = next.board[route] || {cells: Array(8).fill(''), notified: Array(8).fill(false)};
-                        next.board[route].cells[i] = v;
-                        return next;
-                      })
-                    }}
-                  />
+                  <input style={{width:'100%'}} value={(row?.cells?.[i] || '')} onChange={(e)=>{
+                    const v = e.target.value;
+                    setLocal(prev=>{
+                      const next:DaySheet = JSON.parse(JSON.stringify(prev));
+                      next.board[route].cells[i] = v;
+                      return next;
+                    })
+                  }} />
                   <div className="small">✔ <input type="checkbox" checked={!!row?.notified?.[i]} onChange={(e)=>{
                     const checked = e.target.checked;
                     setLocal(prev=>{
                       const next:DaySheet = JSON.parse(JSON.stringify(prev));
-                      next.board = next.board || {};
-                      next.board[route] = next.board[route] || {cells: Array(8).fill(''), notified: Array(8).fill(false)};
                       next.board[route].notified[i] = checked;
                       return next;
                     })
@@ -175,9 +132,7 @@ function DaySheetBoard({sheet, onSave}:{sheet:DaySheet, onSave:(s:DaySheet)=>Pro
         </tbody>
       </table>
 
-      <div style={{marginTop:10}} className="small">
-        AM is highlighted yellow; PM is highlighted orange; prints in portrait.
-      </div>
+      <div style={{marginTop:10}} className="small">AM is highlighted yellow; PM is highlighted orange; prints in portrait.</div>
     </div>
   );
 }
@@ -189,12 +144,7 @@ function AdminPanel(){
   const [pin, setPin] = useState('');
   const [role, setRole] = useState<'dispatcher'|'supervisor'|'admin'>('dispatcher');
 
-  async function load(){
-    try{
-      const u = await api('/api/users');
-      setUsers(u);
-    }catch(e:any){ setErr(e.message); }
-  }
+  async function load(){ try{ setUsers(await api('/api/users')); }catch(e:any){ setErr(e.message); } }
   useEffect(()=>{ load(); }, []);
 
   return (
@@ -211,11 +161,8 @@ function AdminPanel(){
         </select>
         <button onClick={async()=>{
           setErr('');
-          try{
-            await api('/api/users', {method:'POST', body: JSON.stringify({name, pin, role})});
-            setName(''); setPin(''); setRole('dispatcher');
-            await load();
-          }catch(e:any){ setErr(e.message); }
+          try{ await api('/api/users', {method:'POST', body: JSON.stringify({name, pin, role})}); setName(''); setPin(''); setRole('dispatcher'); await load(); }
+          catch(e:any){ setErr(e.message); }
         }}>Add/Update User</button>
       </div>
 
@@ -224,12 +171,8 @@ function AdminPanel(){
         <tbody>
           {users.map(u=>(
             <tr key={u.id}>
-              <td>{u.name}</td>
-              <td>{u.role}</td>
-              <td>{String(u.active)}</td>
-              <td>
-                <button onClick={async()=>{ await api('/api/users/'+u.id+'/toggle', {method:'POST'}); await load(); }}>Toggle Active</button>
-              </td>
+              <td>{u.name}</td><td>{u.role}</td><td>{String(u.active)}</td>
+              <td><button onClick={async()=>{ await api('/api/users/'+u.id+'/toggle', {method:'POST'}); await load(); }}>Toggle Active</button></td>
             </tr>
           ))}
         </tbody>

@@ -18,10 +18,26 @@ const pool = new Pool({
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
+async function seedRoutesIfNeeded() {
+  const count = await pool.query('select count(*)::int as n from routes');
+  if ((count.rows[0]?.n || 0) > 0) return;
+
+  const roster = JSON.parse(fs.readFileSync(path.join(__dirname, 'roster.json'), 'utf8'));
+  for (const r of roster) {
+    await pool.query(
+      `insert into routes (code, category, requires_assistant, default_driver, default_assistant, bus)
+       values ($1,$2,$3,$4,$5,$6)
+       on conflict (code) do nothing`,
+      [r.code, r.category, !!r.requires_assistant, r.default_driver, r.default_assistant, r.bus]
+    );
+  }
+}
+
 async function initDb() {
   const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
   await pool.query(schema);
 
+  // Ensure admin user exists
   const pin_hash = await bcrypt.hash(String(ADMIN_PIN), 10);
   await pool.query(
     `insert into users (name, pin_hash, role, active)
@@ -29,6 +45,8 @@ async function initDb() {
      on conflict (name) do update set role='admin', active=true`,
     [ADMIN_NAME, pin_hash]
   );
+
+  await seedRoutesIfNeeded();
 }
 
 function signToken(user) {
@@ -48,6 +66,29 @@ function requireRole(roles) {
     if (!roles.includes(req.user.role)) return res.status(403).send('Forbidden');
     next();
   };
+}
+
+async function getRouteCodesOrdered() {
+  const r = await pool.query(
+    `select code, default_driver, default_assistant
+     from routes
+     order by
+       cast(substring(code from 2 for 3) as int),
+       case when right(code,1)='A' then 1 else 0 end`
+  );
+  return r.rows;
+}
+
+function buildDefaultBoard(routeRows) {
+  const board = {};
+  for (const r of routeRows) {
+    const cells = Array(8).fill('');
+    // Prefill AM 1st with default assignment to give dispatcher a starting roster view
+    const prefill = (r.code.endsWith('A') ? r.default_assistant : r.default_driver) || 'OPEN';
+    cells[0] = prefill;
+    board[r.code] = { cells, notified: Array(8).fill(false) };
+  }
+  return board;
 }
 
 const app = express();
@@ -104,12 +145,34 @@ app.post('/api/users/:id/toggle', authRequired, requireRole(['admin']), async (r
   res.json({ ok: true });
 });
 
+app.get('/api/routes', authRequired, async (req, res) => {
+  const r = await pool.query('select code, category, requires_assistant, default_driver, default_assistant, bus from routes order by cast(substring(code from 2 for 3) as int), case when right(code,1)='A' then 1 else 0 end');
+  res.json(r.rows);
+});
+
 app.get('/api/daysheet', authRequired, async (req, res) => {
   const date = req.query.date;
   if (!date) return res.status(400).send('date required');
+
+  const routeRows = await getRouteCodesOrdered();
+  const defaultBoard = buildDefaultBoard(routeRows);
+
   const r = await pool.query('select data from day_sheets where day=$1', [date]);
-  if (r.rowCount === 0) return res.json({ date, board: {} });
-  res.json({ date, ...r.rows[0].data });
+  if (r.rowCount === 0) {
+    return res.json({ date, board: defaultBoard });
+  }
+
+  const data = r.rows[0].data || {};
+  const board = data.board || {};
+  // Merge: keep existing entries, add any new routes
+  for (const code of Object.keys(defaultBoard)) {
+    if (!board[code]) board[code] = defaultBoard[code];
+  }
+
+  // Return sorted board by route order
+  const sorted = {};
+  for (const row of routeRows) sorted[row.code] = board[row.code];
+  res.json({ date, board: sorted, notes: data.notes || '' });
 });
 
 app.post('/api/daysheet', authRequired, async (req, res) => {
@@ -125,19 +188,18 @@ app.post('/api/daysheet', authRequired, async (req, res) => {
 });
 
 app.get('/api/generate', authRequired, async (req, res) => {
+  // MVP v1.1: just returns the default roster board for the date.
+  // Coverage logic will be layered on next.
   const date = req.query.date;
   if (!date) return res.status(400).send('date required');
-  const example = {
-    date,
-    board: {
-      'Z500': { cells: ['OPEN','','','','','','',''], notified: Array(8).fill(false) },
-      'Z560': { cells: ['OPEN','','','', 'OPEN','','',''], notified: Array(8).fill(false) },
-      'Z560A': { cells: ['OPEN','','','', 'OPEN','','',''], notified: Array(8).fill(false) }
-    }
-  };
-  res.json(example);
+  const routeRows = await getRouteCodesOrdered();
+  const board = buildDefaultBoard(routeRows);
+  const sorted = {};
+  for (const row of routeRows) sorted[row.code] = board[row.code];
+  res.json({ date, board: sorted });
 });
 
+// Serve built client
 const clientDist = path.join(__dirname, '..', 'client', 'dist');
 app.use(express.static(clientDist));
 app.get('*', (req, res) => res.sendFile(path.join(clientDist, 'index.html')));

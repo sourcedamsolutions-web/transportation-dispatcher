@@ -7,6 +7,16 @@ create table if not exists users (
   created_at timestamptz not null default now()
 );
 
+create table if not exists routes (
+  id serial primary key,
+  code text unique not null,
+  category text not null,
+  requires_assistant boolean not null default false,
+  default_driver text,
+  default_assistant text,
+  bus text
+);
+
 create table if not exists day_sheets (
   id serial primary key,
   day date unique not null,

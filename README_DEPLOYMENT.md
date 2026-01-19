@@ -1,20 +1,24 @@
-# Transportation Dispatcher (MVP v1.0) – Deploy
+# Transportation Dispatcher (MVP v1.1) – Route Roster Wired
 
-## Render (GitHub)
-1. Upload **all files/folders** from this package to your GitHub repo (NOT the zip).
-2. In Render: New → Web Service → select your repo.
-3. Set:
-   - Language: Node
-   - Build: `npm install && npm run build`
-   - Start: `npm start`
-4. Render Environment vars:
-   - `APP_NAME` = Transportation Dispatcher
-   - `JWT_SECRET` = (Generate)
-   - `ADMIN_NAME` = Ray
-   - `ADMIN_PIN` = 619511
-   - `DATABASE_URL` = (paste Render Postgres Internal URL)
-5. Deploy.
+### What’s new in v1.1
+- Loads the full Route Roster from the uploaded inventory PDF (seeded into Postgres)
+- Day Sheet auto-lists ALL routes (Z500+ and Z560+ plus A-variants)
+- Default AM 1st cell is prefilled with the assigned Driver/Assistant from inventory (or OPEN)
 
-## First Login
+## Deploy Update (GitHub + Render)
+1. In GitHub repo `sourcedamsolutions-web/transportation-dispatcher`, upload/overwrite these from this package:
+   - `package.json`
+   - `client/`
+   - `server/`
+2. In Render Web Service, click **Manual Deploy → Deploy latest commit**.
+
+## Required Render Environment Variables
+- APP_NAME = Transportation Dispatcher
+- JWT_SECRET = (Generate)
+- ADMIN_NAME = Ray
+- ADMIN_PIN = 619511
+- DATABASE_URL = (Render Postgres Internal URL)
+
+## Login
 Name: Ray
 PIN: 619511

@@ -1,0 +1,586 @@
+[
+  {
+    "code": "Z500",
+    "category": "BASIC",
+    "requires_assistant": false,
+    "default_driver": "Roman Torres, Edwin",
+    "default_assistant": null,
+    "bus": "498"
+  },
+  {
+    "code": "Z501",
+    "category": "BASIC",
+    "requires_assistant": false,
+    "default_driver": "Rivera, Daniel",
+    "default_assistant": null,
+    "bus": "497"
+  },
+  {
+    "code": "Z502",
+    "category": "BASIC",
+    "requires_assistant": false,
+    "default_driver": "Parks, Eddie",
+    "default_assistant": null,
+    "bus": "787"
+  },
+  {
+    "code": "Z503",
+    "category": "BASIC",
+    "requires_assistant": false,
+    "default_driver": "OPEN",
+    "default_assistant": null,
+    "bus": "495"
+  },
+  {
+    "code": "Z504",
+    "category": "BASIC",
+    "requires_assistant": false,
+    "default_driver": "OPEN",
+    "default_assistant": null,
+    "bus": "489"
+  },
+  {
+    "code": "Z505",
+    "category": "BASIC",
+    "requires_assistant": false,
+    "default_driver": "Cabral Saraiva, Marcos",
+    "default_assistant": null,
+    "bus": "790"
+  },
+  {
+    "code": "Z506",
+    "category": "BASIC",
+    "requires_assistant": false,
+    "default_driver": "Lugo, Exal",
+    "default_assistant": null,
+    "bus": "493"
+  },
+  {
+    "code": "Z508",
+    "category": "BASIC",
+    "requires_assistant": false,
+    "default_driver": "Dunbar, Tracy",
+    "default_assistant": null,
+    "bus": "491"
+  },
+  {
+    "code": "Z509",
+    "category": "BASIC",
+    "requires_assistant": false,
+    "default_driver": "Bottitta, Giuseppe",
+    "default_assistant": null,
+    "bus": "490"
+  },
+  {
+    "code": "Z510",
+    "category": "BASIC",
+    "requires_assistant": false,
+    "default_driver": "Dendariarena, Jose",
+    "default_assistant": null,
+    "bus": "723"
+  },
+  {
+    "code": "Z512",
+    "category": "BASIC",
+    "requires_assistant": false,
+    "default_driver": "Phipps, Donald",
+    "default_assistant": null,
+    "bus": "716"
+  },
+  {
+    "code": "Z513",
+    "category": "BASIC",
+    "requires_assistant": false,
+    "default_driver": "Nieves Pabon, Giovanni",
+    "default_assistant": null,
+    "bus": "492"
+  },
+  {
+    "code": "Z514",
+    "category": "BASIC",
+    "requires_assistant": false,
+    "default_driver": "Sweet, William",
+    "default_assistant": null,
+    "bus": "676"
+  },
+  {
+    "code": "Z515",
+    "category": "BASIC",
+    "requires_assistant": false,
+    "default_driver": "Eckert, Luevenia",
+    "default_assistant": null,
+    "bus": "675"
+  },
+  {
+    "code": "Z517",
+    "category": "BASIC",
+    "requires_assistant": false,
+    "default_driver": "Smith, Alec",
+    "default_assistant": null,
+    "bus": "673"
+  },
+  {
+    "code": "Z518",
+    "category": "BASIC",
+    "requires_assistant": false,
+    "default_driver": "Manzano, Christian",
+    "default_assistant": null,
+    "bus": "672"
+  },
+  {
+    "code": "Z519",
+    "category": "BASIC",
+    "requires_assistant": false,
+    "default_driver": "Gardner, Deveriell",
+    "default_assistant": null,
+    "bus": "671"
+  },
+  {
+    "code": "Z520",
+    "category": "BASIC",
+    "requires_assistant": false,
+    "default_driver": "Lemieux, Curtis",
+    "default_assistant": null,
+    "bus": "484"
+  },
+  {
+    "code": "Z521",
+    "category": "BASIC",
+    "requires_assistant": false,
+    "default_driver": "OPEN",
+    "default_assistant": null,
+    "bus": "488"
+  },
+  {
+    "code": "Z560",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Vollrath, Dwi",
+    "default_assistant": null,
+    "bus": "670"
+  },
+  {
+    "code": "Z560A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Noel, Rosario",
+    "bus": "670"
+  },
+  {
+    "code": "Z561",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "OPEN",
+    "default_assistant": null,
+    "bus": "786"
+  },
+  {
+    "code": "Z561A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "OPEN",
+    "bus": "786"
+  },
+  {
+    "code": "Z562",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Smith, Daniel",
+    "default_assistant": null,
+    "bus": "487"
+  },
+  {
+    "code": "Z562A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Tirado , Alexandra",
+    "bus": "487"
+  },
+  {
+    "code": "Z563",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Hall, Robert",
+    "default_assistant": null,
+    "bus": "486"
+  },
+  {
+    "code": "Z563A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Salazar Gil, Miriam",
+    "bus": "486"
+  },
+  {
+    "code": "Z564",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Rodriguez, Jessica",
+    "default_assistant": null,
+    "bus": "784"
+  },
+  {
+    "code": "Z564A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Weekly, Cynthia",
+    "bus": "784"
+  },
+  {
+    "code": "Z565",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Fernandez, Alfredo",
+    "default_assistant": null,
+    "bus": "788"
+  },
+  {
+    "code": "Z565A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Sheldon, Susan",
+    "bus": "788"
+  },
+  {
+    "code": "Z566",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Beasley, Philip",
+    "default_assistant": null,
+    "bus": "483"
+  },
+  {
+    "code": "Z566A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Smith, Cindy",
+    "bus": "483"
+  },
+  {
+    "code": "Z568",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Olivares, Franklyn",
+    "default_assistant": null,
+    "bus": "482"
+  },
+  {
+    "code": "Z568A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Gresko, Shasta",
+    "bus": "482"
+  },
+  {
+    "code": "Z569",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Weaver, Sarah",
+    "default_assistant": null,
+    "bus": "769"
+  },
+  {
+    "code": "Z569A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Daley, Henrietta",
+    "bus": "769"
+  },
+  {
+    "code": "Z570",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Rodriguez Romero, Yaminah",
+    "default_assistant": null,
+    "bus": "722"
+  },
+  {
+    "code": "Z570A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Noble Blue, Alma",
+    "bus": "722"
+  },
+  {
+    "code": "Z571",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Hughes, Tanya",
+    "default_assistant": null,
+    "bus": "771"
+  },
+  {
+    "code": "Z571A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Burlison, Cindy",
+    "bus": "771"
+  },
+  {
+    "code": "Z572",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Mc Clung, Melody",
+    "default_assistant": null,
+    "bus": "721"
+  },
+  {
+    "code": "Z572A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Weaver, Shea",
+    "bus": "721"
+  },
+  {
+    "code": "Z573",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "OPEN",
+    "default_assistant": null,
+    "bus": "718"
+  },
+  {
+    "code": "Z573A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Shields, Dell",
+    "bus": "718"
+  },
+  {
+    "code": "Z574",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Rivera Ramos, Hector",
+    "default_assistant": null,
+    "bus": "770"
+  },
+  {
+    "code": "Z574A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Hernandez, Sylvia",
+    "bus": "770"
+  },
+  {
+    "code": "Z575",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Childers, Tracy",
+    "default_assistant": null,
+    "bus": "720"
+  },
+  {
+    "code": "Z575A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Munoz, Shirley",
+    "bus": "720"
+  },
+  {
+    "code": "Z576",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Dhaliwal, Toninder",
+    "default_assistant": null,
+    "bus": "494"
+  },
+  {
+    "code": "Z576A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Lahaye, Deanna",
+    "bus": "494"
+  },
+  {
+    "code": "Z577",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Levesque, Matthew",
+    "default_assistant": null,
+    "bus": "496"
+  },
+  {
+    "code": "Z577A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Di Palma, Luiz",
+    "bus": "496"
+  },
+  {
+    "code": "Z578",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Pelletier, Robin",
+    "default_assistant": null,
+    "bus": "773"
+  },
+  {
+    "code": "Z578A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Barriger, Sandra",
+    "bus": "773"
+  },
+  {
+    "code": "Z579",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Russ, Robyn",
+    "default_assistant": null,
+    "bus": "772"
+  },
+  {
+    "code": "Z579A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Deem, Elizabeth",
+    "bus": "772"
+  },
+  {
+    "code": "Z580",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "OPEN",
+    "default_assistant": null,
+    "bus": "485"
+  },
+  {
+    "code": "Z580A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Scantling, Melissa",
+    "bus": "485"
+  },
+  {
+    "code": "Z581",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Dale, Crystal ESE",
+    "default_assistant": null,
+    "bus": "481"
+  },
+  {
+    "code": "Z581A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Mc Nabb, Sandra ESE",
+    "bus": "481"
+  },
+  {
+    "code": "Z582",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Knotts, Elaine",
+    "default_assistant": null,
+    "bus": "719"
+  },
+  {
+    "code": "Z582A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Jimenez, Brigida",
+    "bus": "719"
+  },
+  {
+    "code": "Z583",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Warren, Sherry",
+    "default_assistant": null,
+    "bus": "738"
+  },
+  {
+    "code": "Z583A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Neal, Sharon",
+    "bus": "738"
+  },
+  {
+    "code": "Z584",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Baker, Regina",
+    "default_assistant": null,
+    "bus": "785"
+  },
+  {
+    "code": "Z584A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Shea, Elizabeth",
+    "bus": "785"
+  },
+  {
+    "code": "Z585",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Davis, Cindy",
+    "default_assistant": null,
+    "bus": "808"
+  },
+  {
+    "code": "Z585A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Godwin, Joseph",
+    "bus": "808"
+  },
+  {
+    "code": "Z587",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Stapleton, Kimberly",
+    "default_assistant": null,
+    "bus": "647"
+  },
+  {
+    "code": "Z587A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Woodworth, Holly",
+    "bus": "647"
+  },
+  {
+    "code": "Z588",
+    "category": "ESE",
+    "requires_assistant": true,
+    "default_driver": "Alonso - Perez, Waleska",
+    "default_assistant": null,
+    "bus": "739"
+  },
+  {
+    "code": "Z588A",
+    "category": "ESE",
+    "requires_assistant": false,
+    "default_driver": null,
+    "default_assistant": "Simmons, Zelpha",
+    "bus": "739"
+  }
+]
