@@ -9,5 +9,5 @@
     "build": "npm run build -w client",
     "start": "node server/index.js"
   },
-  "version": "1.7.4"
+  "version": "1.7.5"
 }

@@ -910,4 +910,103 @@ export default function App() {
       {activeTab === "admin" && user.role === "admin" ? <AdminPanel /> : null}
     </div>
   );
+}type CalloutsData = {
+  drivers: { am: string[]; pm: string[] };
+  assistants: { am: string[]; pm: string[] };
+};
+
+function MultiSelect({ label, options, value, onChange }: { label: string; options: string[]; value: string[]; onChange: (v: string[]) => void }) {
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ fontWeight: 700, marginBottom: 4 }}>{label}</div>
+      <select
+        multiple
+        value={value}
+        onChange={(e) => {
+          const v = Array.from(e.target.selectedOptions).map((o) => o.value);
+          onChange(v);
+        }}
+        style={{ width: "100%", minHeight: 120, padding: 8, borderRadius: 10, border: "1px solid #ddd" }}
+      >
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+      <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>Hold Ctrl (Windows) / Cmd (Mac) to select multiple.</div>
+    </div>
+  );
 }
+
+function CallOutsTab({ date }: { date: string }) {
+  const [loading, setLoading] = useState(true);
+  const [people, setPeople] = useState<string[]>([]);
+  const [data, setData] = useState<CalloutsData>({ drivers: { am: [], pm: [] }, assistants: { am: [], pm: [] } });
+  const [status, setStatus] = useState<string>("");
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const p = await apiGet(`/api/people`);
+        const c = await apiGet(`/api/callouts?date=${encodeURIComponent(date)}`);
+        if (!alive) return;
+        setPeople(p.people || []);
+        setData(c.data || { drivers: { am: [], pm: [] }, assistants: { am: [], pm: [] } });
+      } catch (e: any) {
+        setStatus(String(e?.message || e));
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => { alive = false; };
+  }, [date]);
+
+  async function save() {
+    setStatus("");
+    try {
+      await apiPost("/api/callouts", { date, data });
+      setStatus("Saved.");
+    } catch (e: any) {
+      setStatus("Save failed: " + String(e?.message || e));
+    }
+  }
+
+  if (loading) return <div style={{ padding: 16 }}>Loading Call-Outs…</div>;
+
+  return (
+    <div style={{ padding: 16, maxWidth: 980 }}>
+      <h2 style={{ marginTop: 0 }}>Call-Outs — {date}</h2>
+
+      {status && <div style={{ marginBottom: 12, padding: 10, border: "1px solid #ddd", borderRadius: 10 }}>{status}</div>}
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div style={{ padding: 12, border: "1px solid #eee", borderRadius: 14 }}>
+          <h3 style={{ marginTop: 0 }}>Drivers</h3>
+          <MultiSelect label="AM Out" options={people} value={data.drivers.am} onChange={(v) => setData({ ...data, drivers: { ...data.drivers, am: v } })} />
+          <MultiSelect label="PM Out" options={people} value={data.drivers.pm} onChange={(v) => setData({ ...data, drivers: { ...data.drivers, pm: v } })} />
+        </div>
+
+        <div style={{ padding: 12, border: "1px solid #eee", borderRadius: 14 }}>
+          <h3 style={{ marginTop: 0 }}>Assistants</h3>
+          <MultiSelect label="AM Out" options={people} value={data.assistants.am} onChange={(v) => setData({ ...data, assistants: { ...data.assistants, am: v } })} />
+          <MultiSelect label="PM Out" options={people} value={data.assistants.pm} onChange={(v) => setData({ ...data, assistants: { ...data.assistants, pm: v } })} />
+        </div>
+      </div>
+
+      <div style={{ marginTop: 14, display: "flex", gap: 10 }}>
+        <button onClick={save} style={{ padding: "10px 14px", borderRadius: 12, border: "1px solid #111", background: "#111", color: "white" }}>
+          Save Call-Outs
+        </button>
+      </div>
+
+      <div style={{ marginTop: 14, fontSize: 13, opacity: 0.75 }}>
+        Next: coverage engine will use these call-outs to generate 1–3 optimized coverage options and push the chosen option into the Day Sheet.
+      </div>
+    </div>
+  );
+}
+
+
