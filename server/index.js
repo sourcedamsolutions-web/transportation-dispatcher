@@ -8,7 +8,7 @@ const { Pool } = require('pg');
 require('dotenv').config();
 
 const APP_NAME = process.env.APP_NAME || 'Transportation Dispatcher';
-const APP_VERSION = process.env.APP_VERSION || 'v1.7.5';
+const APP_VERSION = process.env.APP_VERSION || 'v1.8.1';
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 const ADMIN_NAME = process.env.ADMIN_NAME || 'Ray';
 const ADMIN_PIN = process.env.ADMIN_PIN || '619511';
@@ -81,6 +81,7 @@ async function getRouteCodesOrdered() {
 }
 
 function buildDefaultBoard(routeRows) {
+
   const board = {};
   for (const r of routeRows) {
     const cells = Array(8).fill('');
@@ -90,6 +91,125 @@ function buildDefaultBoard(routeRows) {
     board[r.code] = { cells, notified: Array(8).fill(false) };
   }
   return board;
+}
+
+function buildReliefPools() {
+  // Priority pools per Ray's rules
+  const relief_full = ["Julia", "Noel", "Lizette"];
+  const supervisors_primary = ["Ray", "Nic"];
+  const supervisors_extreme = ["Rachael"];
+  const relief_part_am = ["Myra"]; // AM only
+  const relief_part_late_am3 = ["Jeff"]; // usually AM 3rd (late morning)
+  return { relief_full, supervisors_primary, supervisors_extreme, relief_part_am, relief_part_late_am3 };
+}
+
+function isAssistantRoute(code) {
+  return String(code).endsWith('A');
+}
+
+function segmentName(idx) {
+  const names = ["AM 1st","AM 2nd","AM 3rd","AM 4th","PM 1st","PM 2nd","PM 3rd","PM 4th"];
+  return names[idx] || `Seg ${idx+1}`;
+}
+
+function cloneBoard(board) {
+  return JSON.parse(JSON.stringify(board || {}));
+}
+
+async function loadCallouts(date) {
+  const r = await pool.query('select data from callouts where day=$1', [date]);
+  if (r.rowCount === 0) return { drivers: { am: [], pm: [] }, assistants: { am: [], pm: [] } };
+  return r.rows[0].data || { drivers: { am: [], pm: [] }, assistants: { am: [], pm: [] } };
+}
+
+function computeNeeds(routeRows, callouts) {
+  // Returns { driverNeeds: [{code, idx}], assistantNeeds: [{code, idx}] }
+  const driverNeeds = [];
+  const assistantNeeds = [];
+  const driversOutAm = new Set(callouts?.drivers?.am || []);
+  const driversOutPm = new Set(callouts?.drivers?.pm || []);
+  const asstOutAm = new Set(callouts?.assistants?.am || []);
+  const asstOutPm = new Set(callouts?.assistants?.pm || []);
+
+  for (const r of routeRows) {
+    const code = r.code;
+    const assigned = isAssistantRoute(code) ? (r.default_assistant || "OPEN") : (r.default_driver || "OPEN");
+    const isOpen = !assigned || assigned === "OPEN";
+    const isOutAm = isAssistantRoute(code) ? asstOutAm.has(assigned) : driversOutAm.has(assigned);
+    const isOutPm = isAssistantRoute(code) ? asstOutPm.has(assigned) : driversOutPm.has(assigned);
+
+    // If OPEN or OUT, mark all segments as needing coverage for that role.
+    // (We can refine later with route-specific segment requirements.)
+    for (let idx = 0; idx < 8; idx++) {
+      const isAm = idx < 4;
+      if (isAm && (isOpen || isOutAm)) {
+        (isAssistantRoute(code) ? assistantNeeds : driverNeeds).push({ code, idx });
+      }
+      if (!isAm && (isOpen || isOutPm)) {
+        (isAssistantRoute(code) ? assistantNeeds : driverNeeds).push({ code, idx });
+      }
+    }
+  }
+  return { driverNeeds, assistantNeeds };
+}
+
+function buildPoolsForSegment(idx) {
+  const pools = buildReliefPools();
+  // Base order: full relief -> primary supervisors -> extreme supervisors
+  let list = [...pools.relief_full, ...pools.supervisors_primary, ...pools.supervisors_extreme];
+  if (idx < 4) { // AM
+    list = [...pools.relief_part_am, ...list];
+    if (idx === 2) list = [...pools.relief_part_late_am3, ...list];
+  }
+  return list;
+}
+
+function generateOption(board, routeRows, callouts, optionSeed) {
+  const b = cloneBoard(board);
+  const usedBySeg = Array.from({ length: 8 }, () => new Set());
+
+  // Initialize used with current non-empty assignments
+  for (const code of Object.keys(b)) {
+    const cells = b[code]?.cells || [];
+    for (let i = 0; i < 8; i++) {
+      const v = (cells[i] || "").trim();
+      if (v && v !== "OPEN") usedBySeg[i].add(v);
+    }
+  }
+
+  const { driverNeeds, assistantNeeds } = computeNeeds(routeRows, callouts);
+
+  // Simple shuffle/rotation for different options
+  const rotate = (arr, k) => arr.length ? arr.slice(k % arr.length).concat(arr.slice(0, k % arr.length)) : arr;
+
+  function assignNeeds(needs) {
+    for (const need of needs) {
+      const { code, idx } = need;
+      if (!b[code]) continue;
+      const cur = (b[code].cells[idx] || "").trim();
+      // Only fill if OPEN or blank
+      if (cur && cur !== "OPEN") continue;
+
+      let pool = buildPoolsForSegment(idx);
+      pool = rotate(pool, optionSeed);
+
+      let pick = pool.find((p) => !usedBySeg[idx].has(p));
+      if (!pick) {
+        // fallback: allow reuse
+        pick = pool[0] || "OPEN";
+      }
+      b[code].cells[idx] = pick;
+      // do not auto-check notified
+      b[code].notified = b[code].notified || Array(8).fill(false);
+      usedBySeg[idx].add(pick);
+    }
+  }
+
+  // Optimize globally (drivers+assistants) by filling both sets; assistants separate but same logic.
+  assignNeeds(driverNeeds);
+  assignNeeds(assistantNeeds);
+
+  return b;
 }
 
 function buildPeopleList(routeRows) {
@@ -233,6 +353,71 @@ app.get('/api/generate', authRequired, async (req, res) => {
   const sorted = {};
   for (const row of routeRows) sorted[row.code] = board[row.code];
   res.json({ date, board: sorted });
+});
+
+
+app.get('/api/coverage-options', authRequired, async (req, res) => {
+  const date = req.query.date;
+  if (!date) return res.status(400).send('date required');
+
+  const routeRows = await getRouteCodesOrdered();
+  const callouts = await loadCallouts(date);
+
+  // start from existing board for the day if it exists, else default
+  const defaultBoard = buildDefaultBoard(routeRows);
+  const existing = await pool.query('select data from day_sheets where day=$1', [date]);
+  let baseBoard = defaultBoard;
+  if (existing.rowCount > 0) {
+    const data = existing.rows[0].data || {};
+    baseBoard = data.board || defaultBoard;
+    // merge any new routes
+    for (const code of Object.keys(defaultBoard)) if (!baseBoard[code]) baseBoard[code] = defaultBoard[code];
+  }
+
+  const option1 = generateOption(baseBoard, routeRows, callouts, 0);
+  const option2 = generateOption(baseBoard, routeRows, callouts, 2);
+  const option3 = generateOption(baseBoard, routeRows, callouts, 4);
+
+  res.json({
+    date,
+    options: [
+      { id: 0, label: 'Option 1 (Relief-first)', board: option1 },
+      { id: 1, label: 'Option 2 (Alternate rotation)', board: option2 },
+      { id: 2, label: 'Option 3 (Alternate rotation)', board: option3 }
+    ]
+  });
+});
+
+app.post('/api/apply-coverage', authRequired, async (req, res) => {
+  const { date, option } = req.body || {};
+  if (!date) return res.status(400).send('date required');
+  if (option == null) return res.status(400).send('option required');
+
+  const routeRows = await getRouteCodesOrdered();
+  const callouts = await loadCallouts(date);
+
+  const defaultBoard = buildDefaultBoard(routeRows);
+  const existing = await pool.query('select data from day_sheets where day=$1', [date]);
+  let baseBoard = defaultBoard;
+  let notes = '';
+  if (existing.rowCount > 0) {
+    const data = existing.rows[0].data || {};
+    baseBoard = data.board || defaultBoard;
+    notes = data.notes || '';
+    for (const code of Object.keys(defaultBoard)) if (!baseBoard[code]) baseBoard[code] = defaultBoard[code];
+  }
+
+  const seed = option === 1 ? 2 : option === 2 ? 4 : 0;
+  const applied = generateOption(baseBoard, routeRows, callouts, seed);
+
+  const data = { board: applied, notes };
+  await pool.query(
+    `insert into day_sheets (day, data) values ($1, $2::jsonb)
+     on conflict (day) do update set data=$2::jsonb, updated_at=now()`,
+    [date, JSON.stringify(data)]
+  );
+
+  res.json({ ok: true });
 });
 
 // Serve built client

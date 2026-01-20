@@ -944,6 +944,9 @@ function CallOutsTab({ date }: { date: string }) {
   const [people, setPeople] = useState<string[]>([]);
   const [data, setData] = useState<CalloutsData>({ drivers: { am: [], pm: [] }, assistants: { am: [], pm: [] } });
   const [status, setStatus] = useState<string>("");
+  const [options, setOptions] = useState<any[]>([]);
+  const [selected, setSelected] = useState<number>(0);
+
 
   useEffect(() => {
     let alive = true;
@@ -974,7 +977,29 @@ function CallOutsTab({ date }: { date: string }) {
     }
   }
 
-  if (loading) return <div style={{ padding: 16 }}>Loading Call-Outs…</div>;
+  
+  async function generateOptions() {
+    setStatus("");
+    try {
+      const r = await apiGet(`/api/coverage-options?date=${encodeURIComponent(date)}`);
+      setOptions(r.options || []);
+      setSelected(0);
+      setStatus(`Generated ${(r.options || []).length} option(s). Choose one and Apply.`);
+    } catch (e: any) {
+      setStatus("Generate failed: " + String(e?.message || e));
+    }
+  }
+
+  async function applySelected() {
+    setStatus("");
+    try {
+      await apiPost("/api/apply-coverage", { date, option: selected });
+      setStatus("Applied to Day Sheet. Go to the Day Sheet tab to review/adjust, then Save.");
+    } catch (e: any) {
+      setStatus("Apply failed: " + String(e?.message || e));
+    }
+  }
+if (loading) return <div style={{ padding: 16 }}>Loading Call-Outs…</div>;
 
   return (
     <div style={{ padding: 16, maxWidth: 980 }}>
@@ -996,14 +1021,27 @@ function CallOutsTab({ date }: { date: string }) {
         </div>
       </div>
 
-      <div style={{ marginTop: 14, display: "flex", gap: 10 }}>
+      <div style={{ marginTop: 14, display: "flex", gap: 10, flexWrap: "wrap" }}>
         <button onClick={save} style={{ padding: "10px 14px", borderRadius: 12, border: "1px solid #111", background: "#111", color: "white" }}>
           Save Call-Outs
         </button>
+        <button onClick={generateOptions} style={{ padding: "10px 14px", borderRadius: 12, border: "1px solid #111", background: "white" }}>
+          Generate Coverage Options
+        </button>
+        {options.length > 0 && (
+          <>
+            <select value={selected} onChange={(e)=>setSelected(Number(e.target.value))} style={{ padding: "10px 12px", borderRadius: 12, border: "1px solid #ddd" }}>
+              {options.map((o:any)=> <option key={o.id} value={o.id}>{o.label}</option>)}
+            </select>
+            <button onClick={applySelected} style={{ padding: "10px 14px", borderRadius: 12, border: "1px solid #111", background: "#111", color: "white" }}>
+              Apply to Day Sheet
+            </button>
+          </>
+        )}
       </div>
 
       <div style={{ marginTop: 14, fontSize: 13, opacity: 0.75 }}>
-        Next: coverage engine will use these call-outs to generate 1–3 optimized coverage options and push the chosen option into the Day Sheet.
+        Tip: Save Call-Outs first, then Generate options. After Apply, review in Day Sheet and Save.
       </div>
     </div>
   );
